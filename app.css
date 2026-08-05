@@ -162,8 +162,46 @@ body {
   box-shadow: 0 10px 18px rgba(8, 23, 17, 0.7);
 }
 
-.tile.playable:active {
-  transform: scale(0.94);
+.tile.playable {
+  cursor: grab;
+  /* Sans cela, le navigateur interprète le geste comme un défilement et vole la tuile. */
+  touch-action: none;
+}
+
+/* Tuile en cours de déplacement : elle reste en place, estompée, pour montrer d'où l'on part. */
+.tile.dragging {
+  opacity: 0.25;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Copie qui suit le doigt. Elle vit hors du plateau pour n'être bornée par aucun défilement. */
+.drag-ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 50;
+  display: flex;
+  gap: 3px;
+  pointer-events: none;
+  filter: drop-shadow(0 12px 18px rgba(8, 23, 17, 0.65));
+}
+
+.drag-ghost .tile {
+  animation: none;
+  transform: scale(1.08) rotate(-2deg);
+  border-color: var(--gold);
+}
+
+/* Destination visée sous le doigt. */
+.drop-target {
+  outline: 2px dashed var(--gold-bright);
+  outline-offset: 3px;
+  background-color: rgba(224, 178, 82, 0.12);
+}
+
+.board.drop-target {
+  outline-offset: -6px;
 }
 
 .tile.board {

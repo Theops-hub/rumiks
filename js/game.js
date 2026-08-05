@@ -232,6 +232,71 @@ export function createGame({ onChange, onFeedback }) {
     return analyseMeld(tiles)?.ordered ?? tiles;
   }
 
+  /**
+   * Déplace des tuiles vers une destination.
+   *
+   * `target` vaut `{ kind: 'meld', meldId, index }` pour insérer dans une combinaison existante,
+   * `{ kind: 'new' }` pour en former une nouvelle, ou `{ kind: 'rack', index }` pour remettre en
+   * main. C'est le point de passage unique du glisser-déposer comme de la sélection au doigt.
+   */
+  function moveTiles(tileIds, target) {
+    if (!isHumanTurn()) return false;
+    const ids = new Set(tileIds);
+    if (ids.size === 0) return false;
+
+    const fromRack = state.workRack.filter((t) => ids.has(t.id));
+    const fromBoard = state.workBoard.flatMap((m) => m.tiles).filter((t) => ids.has(t.id));
+    // L'ordre voulu par le joueur est celui de la table puis du chevalet, chacun dans son
+    // ordre d'affichage : c'est ce qui rend le résultat prévisible quand on déplace un groupe.
+    const moved = [...fromBoard, ...fromRack];
+    if (moved.length === 0) return false;
+
+    if (target.kind === 'rack') {
+      // Les règles interdisent de reprendre une tuile posée avant ce tour.
+      const committed = new Set(state.game.board.flatMap((m) => m.tiles).map((t) => t.id));
+      if (moved.some((t) => committed.has(t.id))) {
+        update({
+          message: 'Ces tuiles étaient déjà sur la table avant votre tour : elles y restent.',
+          selection: new Set(),
+        });
+        emit('reject');
+        return false;
+      }
+    }
+
+    let board = state.workBoard.map((m) => ({
+      ...m,
+      tiles: m.tiles.filter((t) => !ids.has(t.id)),
+    }));
+    let rack = state.workRack.filter((t) => !ids.has(t.id));
+
+    if (target.kind === 'new') {
+      board = board.filter((m) => m.tiles.length > 0);
+      board.push(newMeld(reorder(moved), nextTempMeldId--));
+    } else if (target.kind === 'meld') {
+      board = board
+        .map((m) => {
+          if (m.id !== target.meldId) return m;
+          const at = target.index === undefined
+            ? m.tiles.length
+            : Math.max(0, Math.min(target.index, m.tiles.length));
+          const tiles = [...m.tiles.slice(0, at), ...moved, ...m.tiles.slice(at)];
+          return { ...m, tiles: reorder(tiles) };
+        })
+        .filter((m) => m.tiles.length > 0);
+    } else {
+      board = board.filter((m) => m.tiles.length > 0);
+      const at = target.index === undefined
+        ? rack.length
+        : Math.max(0, Math.min(target.index, rack.length));
+      rack = [...rack.slice(0, at), ...moved, ...rack.slice(at)];
+    }
+
+    update({ workBoard: board, workRack: rack, selection: new Set(), message: null });
+    emit(target.kind === 'rack' ? 'select' : 'place');
+    return true;
+  }
+
   /** Envoie la sélection sur une combinaison existante, ou en crée une si `meldId` est nul. */
   function placeSelection(meldId) {
     if (!isHumanTurn()) return;
@@ -240,40 +305,17 @@ export function createGame({ onChange, onFeedback }) {
       emit('reject');
       return;
     }
-
-    const selection = state.selection;
-    const fromRack = state.workRack.filter((t) => selection.has(t.id));
-    const fromBoard = state.workBoard.flatMap((m) => m.tiles).filter((t) => selection.has(t.id));
-    const moved = [...fromRack, ...fromBoard];
-    if (moved.length === 0) return;
-
-    let board = state.workBoard.map((m) => ({
-      ...m,
-      tiles: m.tiles.filter((t) => !selection.has(t.id)),
-    }));
-    const rack = state.workRack.filter((t) => !selection.has(t.id));
-
-    if (meldId === null) {
-      board = board.filter((m) => m.tiles.length > 0);
-      board.push(newMeld(reorder(moved), nextTempMeldId--));
-    } else {
-      board = board
-        .map((m) => (m.id === meldId ? { ...m, tiles: reorder([...m.tiles, ...moved]) } : m))
-        .filter((m) => m.tiles.length > 0);
-    }
-
-    update({ workBoard: board, workRack: rack, selection: new Set(), message: null });
-    emit('place');
+    moveTiles([...state.selection], meldId === null ? { kind: 'new' } : { kind: 'meld', meldId });
   }
 
   /** Ramène au chevalet les tuiles descendues pendant ce tour. */
   function returnSelectionToRack() {
     if (!isHumanTurn()) return;
-    const committed = new Set(state.game.board.flatMap((m) => m.tiles).map((t) => t.id));
-    const moved = state.workBoard
+    const onBoard = state.workBoard
       .flatMap((m) => m.tiles)
-      .filter((t) => state.selection.has(t.id) && !committed.has(t.id));
-    if (moved.length === 0) {
+      .filter((t) => state.selection.has(t.id))
+      .map((t) => t.id);
+    if (onBoard.length === 0) {
       update({
         message: 'Ces tuiles étaient déjà sur la table avant votre tour : elles y restent.',
         selection: new Set(),
@@ -281,17 +323,7 @@ export function createGame({ onChange, onFeedback }) {
       emit('reject');
       return;
     }
-    const movedIds = new Set(moved.map((t) => t.id));
-    const board = state.workBoard
-      .map((m) => ({ ...m, tiles: m.tiles.filter((t) => !movedIds.has(t.id)) }))
-      .filter((m) => m.tiles.length > 0);
-    update({
-      workBoard: board,
-      workRack: sortByColor([...state.workRack, ...moved]),
-      selection: new Set(),
-      message: null,
-    });
-    emit('select');
+    moveTiles(onBoard, { kind: 'rack' });
   }
 
   function sortRack(mode) {
@@ -456,6 +488,7 @@ export function createGame({ onChange, onFeedback }) {
     forgetSavedGame,
     toggleSelection,
     clearSelection,
+    moveTiles,
     placeSelection,
     returnSelectionToRack,
     sortRack,

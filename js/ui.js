@@ -42,14 +42,15 @@ const RULES = [
 ];
 
 /** Comment jouer, rappelé sur la table tant que rien n'est posé. */
-const EMPTY_BOARD_HINT = 'Touchez les tuiles de votre chevalet pour les choisir, '
-  + `puis « + Nouvelle combinaison » pour les poser. Il faut ${INITIAL_MELD_POINTS} points pour ouvrir.`;
+const EMPTY_BOARD_HINT = 'Faites glisser vos tuiles ici pour former vos combinaisons. '
+  + `Il faut ${INITIAL_MELD_POINTS} points pour ouvrir.`;
 
-function tileElement(t, { selected = false, board = false, onClick = null } = {}) {
+function tileElement(t, { selected = false, board = false, playable = false } = {}) {
   const el = document.createElement('div');
   el.className = `tile ${t.color}${board ? ' board' : ''}${selected ? ' selected' : ''}`;
   if (t.isJoker) el.classList.add('joker');
-  if (onClick) el.classList.add('playable');
+  if (playable) el.classList.add('playable');
+  el.dataset.tileId = String(t.id);
 
   const value = document.createElement('span');
   value.className = 'value';
@@ -60,15 +61,14 @@ function tileElement(t, { selected = false, board = false, onClick = null } = {}
   dot.className = 'dot';
   el.append(dot);
 
-  el.setAttribute('role', onClick ? 'button' : 'img');
+  el.setAttribute('role', playable ? 'button' : 'img');
   el.setAttribute(
     'aria-label',
     t.isJoker ? 'joker' : `${t.number} ${{ black: 'noir', red: 'rouge', blue: 'bleu', orange: 'orange' }[t.color]}`,
   );
-  if (onClick) {
-    el.tabIndex = 0;
-    el.addEventListener('click', onClick);
-  }
+  // Le clic n'est pas géré ici : c'est le module de glisser-déposer qui distingue le tap du
+  // déplacement, sur le même geste. Le clavier garde en revanche son propre chemin.
+  if (playable) el.tabIndex = 0;
   return el;
 }
 
@@ -169,11 +169,12 @@ export function createUi(game) {
       const sound = meld.tiles.length >= 3 && analyseMeld(meld.tiles) !== null;
       const row = document.createElement('div');
       row.className = `meld${sound ? '' : ' invalid'}`;
+      row.dataset.meldId = String(meld.id);
       for (const t of meld.tiles) {
         row.append(tileElement(t, {
           board: true,
           selected: ui.selection.has(t.id),
-          onClick: derived.isHumanTurn ? () => game.toggleSelection(t.id) : null,
+          playable: derived.isHumanTurn,
         }));
       }
       if (derived.isHumanTurn && ui.selection.size > 0) {
@@ -235,7 +236,7 @@ export function createUi(game) {
     for (const t of ui.workRack) {
       host.append(tileElement(t, {
         selected: ui.selection.has(t.id),
-        onClick: derived.isHumanTurn ? () => game.toggleSelection(t.id) : null,
+        playable: derived.isHumanTurn,
       }));
     }
   }
