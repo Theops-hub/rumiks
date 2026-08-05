@@ -8,7 +8,9 @@ navigateur les lit directement en modules ES.
 
 ## Installer sur un iPad
 
-1. ouvrir l'adresse du jeu dans **Safari** (pas dans Chrome : sur iOS, seul Safari sait ajouter
+Adresse du jeu : **<https://theops-hub.github.io/rumiks/>**
+
+1. ouvrir cette adresse dans **Safari** (pas dans Chrome : sur iOS, seul Safari sait ajouter
    une application à l'écran d'accueil) ;
 2. bouton **Partager** → **Sur l'écran d'accueil** → **Ajouter** ;
 3. lancer le jeu depuis la nouvelle icône : il s'ouvre en plein écran, sans barre d'adresse.
