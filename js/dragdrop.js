@@ -11,6 +11,19 @@
 const DRAG_THRESHOLD = 6;
 
 /**
+ * Hauteur dont la tuile portée est remontée au-dessus du point de contact : sur une tablette,
+ * le doigt masque exactement ce qu'on essaie de placer.
+ */
+const FINGER_LIFT = 22;
+
+/**
+ * Écart toléré entre la tuile portée et une combinaison pour l'y joindre. La comparaison porte
+ * sur les deux rectangles et non sur un point : on accole une tuile contre une autre, il suffit
+ * donc de l'en approcher.
+ */
+const DROP_TOLERANCE = 30;
+
+/**
  * Repère où insérer entre deux tuiles : à gauche ou à droite de celle qu'on survole. Les tuiles
  * en cours de déplacement sont ignorées, sinon elles fausseraient leur propre destination.
  */
@@ -33,44 +46,115 @@ export function enableDragAndDrop({ root, game, onDropped }) {
     return selection.has(tileId) && selection.size > 1 ? [...selection] : [tileId];
   }
 
+  /**
+   * Construit la tuile portée. Elle conserve l'endroit exact où le doigt l'a saisie, de sorte
+   * qu'elle ne saute pas au moment de la prise, mais elle est remontée pour rester visible.
+   */
   function buildGhost(elements, pointer) {
     const ghost = document.createElement('div');
     ghost.className = 'drag-ghost';
     const first = elements[0].getBoundingClientRect();
     for (const element of elements) {
       const copy = element.cloneNode(true);
-      copy.classList.remove('selected');
+      copy.classList.remove('selected', 'dragging');
       ghost.append(copy);
     }
     document.body.append(ghost);
-    ghost.style.left = `${pointer.x}px`;
-    ghost.style.top = `${pointer.y}px`;
-    return { ghost, grabX: pointer.x - first.left, grabY: pointer.y - first.top };
+    return {
+      ghost,
+      grabX: pointer.x - first.left,
+      grabY: pointer.y - first.top + FINGER_LIFT,
+      tileWidth: first.width,
+      tileHeight: first.height,
+    };
+  }
+
+  /**
+   * Emprise de la tuile portée. C'est elle, et non la pulpe du doigt, qui décide de la
+   * destination : ce qu'on voit à l'écran doit être ce qui compte.
+   */
+  function draggedRect(event) {
+    if (drag === null || !drag.moved) {
+      return {
+        left: event.clientX, right: event.clientX, top: event.clientY, bottom: event.clientY,
+      };
+    }
+    const left = event.clientX - drag.grabX;
+    const top = event.clientY - drag.grabY;
+    return {
+      left,
+      top,
+      right: left + drag.tileWidth,
+      bottom: top + drag.tileHeight,
+    };
   }
 
   function clearHighlight() {
     for (const element of root.querySelectorAll('.drop-target')) {
       element.classList.remove('drop-target');
     }
+    for (const element of root.querySelectorAll('.insert-before, .insert-after')) {
+      element.classList.remove('insert-before', 'insert-after');
+    }
   }
 
-  /** Détermine la destination sous le doigt. */
-  function targetAt(x, y) {
-    const under = document.elementFromPoint(x, y);
-    if (!under) return null;
+  /**
+   * Montre où la tuile va s'intercaler. Le repère est un liseré porté par la tuile voisine et
+   * non un élément inséré : ajouter un élément décalerait toute la rangée à chaque déplacement
+   * du doigt.
+   */
+  function showInsertionMark({ element, target }) {
+    if (target.kind === 'new') return;
+    const tiles = [...element.querySelectorAll('.tile:not(.dragging)')];
+    if (tiles.length === 0) return;
+    if (target.index >= tiles.length) tiles[tiles.length - 1].classList.add('insert-after');
+    else tiles[target.index].classList.add('insert-before');
+  }
 
-    const meld = under.closest('.meld');
-    if (meld && meld.dataset.meldId) {
+  /** Écart entre deux rectangles ; nul dès qu'ils se chevauchent. */
+  function rectDistance(a, b) {
+    const dx = Math.max(b.left - a.right, 0, a.left - b.right);
+    const dy = Math.max(b.top - a.bottom, 0, a.top - b.bottom);
+    return Math.hypot(dx, dy);
+  }
+
+  /**
+   * Détermine la destination visée par la tuile portée.
+   *
+   * Il n'est pas demandé de tomber pile sur une combinaison : la plus proche l'emporte dès que
+   * la tuile la frôle. Sans cette tolérance, compléter un groupe de trois relèverait de
+   * l'adresse, puisqu'une combinaison naissante ne fait qu'une tuile de large.
+   */
+  function targetAt(rect) {
+    const centreX = (rect.left + rect.right) / 2;
+    const centreY = (rect.top + rect.bottom) / 2;
+
+    let best = null;
+    let bestDistance = Infinity;
+    for (const meld of root.querySelectorAll('.meld[data-meld-id]')) {
+      const distance = rectDistance(rect, meld.getBoundingClientRect());
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        best = meld;
+      }
+    }
+    if (best !== null && bestDistance <= DROP_TOLERANCE) {
       return {
-        element: meld,
-        target: { kind: 'meld', meldId: Number(meld.dataset.meldId), index: insertionIndex(meld, x) },
+        element: best,
+        target: {
+          kind: 'meld',
+          meldId: Number(best.dataset.meldId),
+          index: insertionIndex(best, centreX),
+        },
       };
     }
-    const rack = under.closest('#rack');
+
+    const under = document.elementFromPoint(centreX, centreY);
+    const rack = under?.closest('#rack');
     if (rack) {
-      return { element: rack, target: { kind: 'rack', index: insertionIndex(rack, x) } };
+      return { element: rack, target: { kind: 'rack', index: insertionIndex(rack, centreX) } };
     }
-    const board = under.closest('#board');
+    const board = under?.closest('#board');
     if (board) return { element: board, target: { kind: 'new' } };
     return null;
   }
@@ -80,8 +164,9 @@ export function enableDragAndDrop({ root, game, onDropped }) {
     const { ghost, elements, tileIds, moved } = drag;
 
     if (moved) {
+      const rect = draggedRect(event);
       ghost.remove();
-      const found = targetAt(event.clientX, event.clientY);
+      const found = targetAt(rect);
       clearHighlight();
       for (const element of elements) element.classList.remove('dragging');
       drag = null;
@@ -127,8 +212,13 @@ export function enableDragAndDrop({ root, game, onDropped }) {
       grabX: 0,
       grabY: 0,
     };
-    // La capture garantit de recevoir les événements même si le doigt sort de la tuile.
-    tile.setPointerCapture(event.pointerId);
+    // La capture garantit de recevoir les événements même si le doigt sort de la tuile. Elle
+    // échoue sur un pointeur synthétique ; le déplacement reste alors géré par bouillonnement.
+    try {
+      tile.setPointerCapture(event.pointerId);
+    } catch {
+      /* sans capture, on suit les événements remontés jusqu'à la racine */
+    }
   });
 
   root.addEventListener('pointermove', (event) => {
@@ -139,10 +229,10 @@ export function enableDragAndDrop({ root, game, onDropped }) {
     if (!drag.moved) {
       if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
       drag.moved = true;
+      // La mesure doit précéder le masquage : une fois retirée du flux, la tuile n'a plus de
+      // position à laquelle accrocher le geste.
       const built = buildGhost(drag.elements, { x: event.clientX, y: event.clientY });
-      drag.ghost = built.ghost;
-      drag.grabX = built.grabX;
-      drag.grabY = built.grabY;
+      Object.assign(drag, built);
       for (const element of drag.elements) element.classList.add('dragging');
     }
 
@@ -150,8 +240,11 @@ export function enableDragAndDrop({ root, game, onDropped }) {
       `translate(${event.clientX - drag.grabX}px, ${event.clientY - drag.grabY}px)`;
 
     clearHighlight();
-    const found = targetAt(event.clientX, event.clientY);
-    if (found) found.element.classList.add('drop-target');
+    const found = targetAt(draggedRect(event));
+    if (found) {
+      found.element.classList.add('drop-target');
+      showInsertionMark(found);
+    }
   });
 
   root.addEventListener('pointerup', finish);

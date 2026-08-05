@@ -223,6 +223,9 @@ export function createUi(game) {
     host.append(text);
   }
 
+  /** Au-delà de ce nombre de tuiles, le chevalet passe sur deux rangées comme le vrai. */
+  const SINGLE_ROW_LIMIT = 8;
+
   function renderRack(ui, derived) {
     const host = $('rack');
     host.replaceChildren();
@@ -233,12 +236,23 @@ export function createUi(game) {
       host.append(empty);
       return;
     }
+
+    // Le nombre de colonnes est fixé plutôt que laissé au retour à la ligne automatique : c'est
+    // ce qui garantit deux rangées équilibrées, et non une rangée pleine suivie d'un reste.
+    const grid = document.createElement('div');
+    grid.className = 'rack-grid';
+    const columns = ui.workRack.length <= SINGLE_ROW_LIMIT
+      ? ui.workRack.length
+      : Math.ceil(ui.workRack.length / 2);
+    grid.style.setProperty('--rack-columns', String(columns));
+
     for (const t of ui.workRack) {
-      host.append(tileElement(t, {
+      grid.append(tileElement(t, {
         selected: ui.selection.has(t.id),
         playable: derived.isHumanTurn,
       }));
     }
+    host.append(grid);
   }
 
   function renderActions(ui, derived) {
