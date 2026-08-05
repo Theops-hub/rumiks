@@ -1,18 +1,16 @@
 # Rumiks
 
-Jeu de tuiles reprenant les règles officielles du Rummikub, avec des joueurs virtuels de trois
-niveaux.
+Jeu de tuiles reprenant les règles officielles du Rummikub, contre des joueurs virtuels de trois
+niveaux. Il s'ajoute à l'écran d'accueil d'un iPad et se joue **entièrement hors ligne**.
 
-**Jouer : <https://theops-hub.github.io/rumiks/>** — s'ajoute à l'écran d'accueil d'un iPad et
-se joue hors ligne. Tout est dans **`web/`** ; voir [web/README.md](web/README.md).
+**Jouer : <https://theops-hub.github.io/rumiks/>**
 
-> `app/` contient une application Android en Kotlin et Jetpack Compose, écrite avant que la
-> cible ne devienne l'iPad. **Elle n'est plus maintenue** : les évolutions ne portent que sur la
-> version web. Le code reste là pour mémoire, et il fonctionne en l'état ; la suite de ce
-> document le décrit.
+Tout le jeu tient dans [`web/`](web/) — aucune dépendance, aucune étape de construction. Voir
+[web/README.md](web/README.md) pour l'installation sur iPad, le détail de l'interface et
+l'organisation du code.
 
 > Le nom « Rummikub » est une marque déposée de Lemada Light Industries. Les règles d'un jeu ne
-> sont pas protégeables, mais le nom l'est : l'application s'appelle donc *Rumiks*.
+> sont pas protégeables, mais le nom l'est : le jeu s'appelle donc *Rumiks*.
 
 ## Ce que le jeu implémente
 
@@ -27,18 +25,18 @@ moins une tuile réelle.
 **Pose initiale.** 30 points minimum en une seule fois, formés uniquement avec les tuiles de son
 chevalet. Tant qu'elle n'est pas faite, les combinaisons déjà sur la table sont intouchables.
 
-**Manipulation de la table.** Une fois ouvert, un joueur découpe, fusionne et réarrange
-librement ce qui est posé, à condition de descendre au moins une tuile de sa main et de laisser
-une table entièrement valide en fin de tour.
+**Manipulation de la table.** Une fois ouvert, un joueur découpe, fusionne et réarrange librement
+ce qui est posé, à condition de descendre au moins une tuile de sa main et de laisser une table
+entièrement valide en fin de tour.
 
-**Jokers.** Un joker posé peut être récupéré en le remplaçant par la tuile qu'il représente,
-mais il doit être rejoué dans le même tour : il ne retourne jamais sur un chevalet. Plus
-généralement, aucune tuile posée ne peut être reprise en main.
+**Jokers.** Un joker posé peut être récupéré en le remplaçant par la tuile qu'il représente, mais
+il doit être rejoué dans le même tour : il ne retourne jamais sur un chevalet. Plus généralement,
+aucune tuile posée ne peut être reprise en main.
 
 **Fin de manche et décompte.** Le premier joueur à vider son chevalet remporte la manche. Si la
 pioche s'épuise et que plus personne ne peut jouer, c'est le chevalet le plus léger qui gagne.
-Chaque perdant compte en négatif les points qui lui restent (30 pour un joker), le gagnant
-marque la somme de ces pénalités. Les scores se cumulent de manche en manche.
+Chaque perdant compte en négatif les points qui lui restent (30 pour un joker), le gagnant marque
+la somme de ces pénalités. Les scores se cumulent de manche en manche.
 
 ## Les joueurs virtuels
 
@@ -49,83 +47,30 @@ envisagés :
 |---|---|---|---|
 | Facile | Uniquement les combinaisons formées avec son seul chevalet | Dépensés sans compter | 3 000 nœuds |
 | Modérée | Complète en plus les combinaisons déjà posées | Ménagés | 30 000 nœuds |
-| Difficile | Refond la table entière pour caser un maximum de tuiles | Préservés | 250 000 nœuds |
+| Difficile | Refond la table entière pour caser un maximum de tuiles | Préservés | 120 000 nœuds |
 
-Le moteur de décision est un solveur de partitionnement (`ai/MeldSolver.kt`) : il raisonne sur
+Le moteur de décision est un solveur de partitionnement (`web/js/solver.js`) : il raisonne sur
 des compteurs de tuiles plutôt que sur des tuiles individuelles, explore en profondeur avec
-mémoïsation, et maximise un score pondérant tuiles posées, points et consommation de jokers.
-Un plafond de nœuds et une limite de temps garantissent que l'interface ne se fige jamais.
+mémoïsation, et maximise un score pondérant tuiles posées, points et consommation de jokers. Un
+plafond de nœuds et une limite de temps garantissent que l'interface ne se fige jamais.
 
-`DifficultyTest` fait s'affronter les niveaux et vérifie que la hiérarchie se traduit bien en
-manches gagnées et en tuiles descendues.
+Un test fait s'affronter les niveaux et vérifie que la hiérarchie se traduit bien en tuiles
+descendues.
 
-## Jouer (version Android)
-
-> La version web, elle, se joue au **glisser-déposer** : on attrape une tuile et on la pose,
-> comme sur une vraie table. Voir [web/README.md](web/README.md).
-
-Sur Android, l'interaction se fait par sélection puis dépôt :
-
-1. toucher une ou plusieurs tuiles du chevalet — ou de la table — pour les sélectionner ;
-2. toucher le bouton `+` d'une combinaison pour y déposer la sélection, ou
-   « + Nouvelle combinaison » pour en créer une ;
-3. une combinaison invalide s'entoure de rouge ; le bouton **Valider** ne s'active que lorsque
-   toute la table est correcte et qu'au moins une tuile a été descendue.
-
-**Reprendre** ramène en main les tuiles descendues pendant le tour, **Annuler** rétablit la
-situation du début de tour, **Piocher** termine le tour.
-
-## Sauvegarde
-
-La partie est écrite sur disque après chaque coup, y compris ceux des joueurs virtuels. Quitter
-vers le menu, fermer l'application ou la voir tuée par le système ne perd rien : l'accueil
-propose alors **Reprendre** à côté de **Nouvelle partie**.
-
-Seul l'état validé est conservé. Un tour entamé mais non validé est abandonné à la reprise —
-mieux vaut repartir d'une table nette que de restaurer un remaniement dont le joueur a perdu le
-fil. Le fichier vit dans le stockage privé de l'application (`files/partie-en-cours.json`,
-quelques kilo-octets) et porte un numéro de version : une sauvegarde issue d'une version
-incompatible est écartée sans faire échouer le démarrage.
-
-## Construire
-
-Prérequis : le SDK Android (plateforme 35) et un JDK 21. Le chemin du JDK est fixé dans
-`gradle.properties`, celui du SDK dans `local.properties` — à ajuster sur une autre machine.
+## Tests
 
 ```
-./gradlew assembleDebug        # APK de test : app/build/outputs/apk/debug/Rumiks-debug.apk
-./gradlew testDebugUnitTest    # suite de tests
-./gradlew assembleRelease      # Rumiks-release.apk, à signer avant distribution
+cd web
+node --test tests/engine.test.js
 ```
 
-Installer sur un appareil branché en débogage USB :
-
-```
-adb install -r app/build/outputs/apk/debug/Rumiks-debug.apk
-```
-
-Un appareil virtuel `rumiks_test` (Pixel 5, Android 15) est déjà créé sur cette machine :
-
-```
-%LOCALAPPDATA%\Android\Sdk\emulator\emulator.exe -avd rumiks_test -gpu swiftshader_indirect
-```
-
-## Organisation du code
-
-```
-model/      Tuiles, combinaisons et leur validation, joueurs
-engine/     État de partie, règles du tour, distribution, décompte
-ai/         Solveur de combinaisons et stratégies des joueurs virtuels
-storage/    Sérialisation et fichier de sauvegarde
-ui/         Thème, rendu des tuiles, écrans et dialogues
-GameViewModel.kt   Enchaînement des tours et manipulation en cours
-```
+45 cas couvrent les combinaisons, la légalité d'un tour, le solveur, et des manches entières
+jouées par les joueurs virtuels en contrôlant chaque coup et la conservation des 106 tuiles.
 
 ## Limites connues
 
-- L'interface a été essayée sur un émulateur Pixel 5 sous Android 15, en paysage uniquement —
-  l'orientation est verrouillée dans le manifeste. Elle n'a pas été confrontée à une tablette
-  ni à un très petit écran.
+- **Pas de vibration sur iPad.** Safari sur iOS n'implémente pas l'API Vibration ; le réglage est
+  masqué là où il ne servirait à rien.
 - Lorsqu'une position d'une suite peut être occupée par une tuile réelle, le solveur n'explore
   pas la variante consistant à lui préférer un joker. Avec deux jokers dans tout le jeu, le coup
   manqué est marginal.
@@ -133,3 +78,9 @@ GameViewModel.kt   Enchaînement des tours et manipulation en cours
   avantageuse en points qui est retenue — ce que ferait un joueur déclarant ce que remplace son
   joker.
 - Une seule partie est mémorisée à la fois : en commencer une nouvelle écrase la précédente.
+
+## Historique
+
+Une application Android en Kotlin et Jetpack Compose a précédé cette version, avant que la cible
+ne devienne l'iPad. Elle a été retirée du dépôt ; son code reste consultable dans l'historique
+(`git show 6ae9a2d:app/` ou `git checkout 6ae9a2d -- app/`).
