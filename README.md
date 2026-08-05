@@ -1,12 +1,15 @@
 # Rumiks
 
 Jeu de tuiles reprenant les règles officielles du Rummikub, avec des joueurs virtuels de trois
-niveaux. Deux versions partagent le même moteur et les mêmes règles :
+niveaux.
 
-- **`web/`** — version web installable sur l'écran d'accueil d'un iPad, jouable hors ligne.
-  C'est la version destinée à l'usage réel ; voir [web/README.md](web/README.md).
-  **Jouer : <https://theops-hub.github.io/rumiks/>**
-- **`app/`** — application Android native en Kotlin et Jetpack Compose, décrite ci-dessous.
+**Jouer : <https://theops-hub.github.io/rumiks/>** — s'ajoute à l'écran d'accueil d'un iPad et
+se joue hors ligne. Tout est dans **`web/`** ; voir [web/README.md](web/README.md).
+
+> `app/` contient une application Android en Kotlin et Jetpack Compose, écrite avant que la
+> cible ne devienne l'iPad. **Elle n'est plus maintenue** : les évolutions ne portent que sur la
+> version web. Le code reste là pour mémoire, et il fonctionne en l'état ; la suite de ce
+> document le décrit.
 
 > Le nom « Rummikub » est une marque déposée de Lemada Light Industries. Les règles d'un jeu ne
 > sont pas protégeables, mais le nom l'est : l'application s'appelle donc *Rumiks*.
