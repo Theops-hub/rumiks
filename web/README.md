@@ -30,6 +30,16 @@ s'insère à l'endroit visé —, d'une combinaison à l'autre pour remanier la 
 chevalet pour reprendre une tuile descendue par erreur. Une tuile posée avant le tour, elle,
 reste sur la table : les règles l'exigent, et le jeu le refuse avec un message.
 
+La tuile soulevée quitte réellement sa place et suit le doigt, légèrement remontée pour rester
+visible. Il n'est pas demandé de viser juste : dès que la tuile frôle une combinaison, celle-ci
+devient la destination, et un liseré doré montre où la pièce va s'intercaler. Sans cette
+tolérance, former un groupe de trois relèverait de l'adresse, une combinaison naissante ne
+faisant qu'une tuile de large.
+
+Le chevalet tient sur **deux rangées**, comme le vrai : toutes les tuiles restent visibles d'un
+coup d'œil, sans défilement, et elles se resserrent d'elles-mêmes si la main gonfle à force de
+piocher.
+
 Toucher une tuile sans la déplacer la sélectionne ; glisser une tuile sélectionnée emporte tout
 le groupe, ce qui permet de déplacer une combinaison entière d'un geste. Les boutons `+` restent
 disponibles pour qui préfère désigner sa cible plutôt que viser, et les tuiles sont atteignables

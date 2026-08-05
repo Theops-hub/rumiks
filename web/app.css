@@ -31,10 +31,12 @@
   --ink-blue: #1f6fa8;
   --ink-orange: #d98014;
 
-  /* La tuile se cale sur la plus contraignante des deux dimensions : la hauteur de l'écran,
-     et la place nécessaire pour aligner un chevalet de quatorze tuiles sans le comprimer.
-     Le plancher de 34 px garde une cible tactile atteignable même sur un petit écran. */
-  --tile-w: clamp(34px, min(8vh, (100vw - 2rem) / 15), 72px);
+  /* Le chevalet tenant sur deux rangées, une tuile n'a plus à se comprimer pour qu'une main de
+     quatorze pièces tienne en largeur : elle se cale sur la hauteur de l'écran, avec un plancher
+     qui garde une cible tactile atteignable et un plafond qui évite le gigantisme sur grand
+     iPad. `--tile-base-w` reste la référence ; le chevalet la réduit s'il le faut. */
+  --tile-base-w: clamp(32px, min(7.4vh, (100vw - 2.5rem) / 9), 70px);
+  --tile-w: var(--tile-base-w);
   --tile-h: calc(var(--tile-w) / 0.74);
   --tile-w-board: calc(var(--tile-w) * 0.86);
   --tile-h-board: calc(var(--tile-h) * 0.86);
@@ -112,11 +114,10 @@ body {
   border-radius: calc(var(--tile-w) * 0.16);
   background: linear-gradient(180deg, var(--tile-top) 0%, var(--tile-bottom) 100%);
   box-shadow: 0 3px 6px rgba(8, 23, 17, 0.55);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: calc(var(--tile-h) * 0.05);
+  /* Le chiffre et la pastille sont posés en coordonnées plutôt qu'empilés par un conteneur :
+     la tuile est un élément à taille fixe, ses deux marques ont une place fixe, et le rendu ne
+     dépend plus d'un calcul d'espacement. */
+  display: block;
   font-weight: 800;
   font-size: calc(var(--tile-h) * 0.42);
   line-height: 1;
@@ -138,12 +139,30 @@ body {
   pointer-events: none;
 }
 
+.tile .value {
+  position: absolute;
+  left: 50%;
+  top: 42%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
 .tile .dot {
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
   width: calc(var(--tile-w) * 0.17);
   height: calc(var(--tile-w) * 0.17);
   border-radius: 50%;
   background: currentColor;
   opacity: 0.9;
+}
+
+/* La pastille suit la taille propre au plateau, plus petite que celle du chevalet. */
+.tile.board .dot {
+  width: calc(var(--tile-w-board) * 0.17);
+  height: calc(var(--tile-w-board) * 0.17);
 }
 
 .tile.black { color: var(--ink-black); }
@@ -168,14 +187,13 @@ body {
   touch-action: none;
 }
 
-/* Tuile en cours de déplacement : elle reste en place, estompée, pour montrer d'où l'on part. */
+/* Une tuile qu'on soulève quitte réellement sa place : elle n'est plus là, et les voisines se
+   referment, exactement comme si on l'avait prise sur la table. */
 .tile.dragging {
-  opacity: 0.25;
-  transform: none;
-  box-shadow: none;
+  display: none;
 }
 
-/* Copie qui suit le doigt. Elle vit hors du plateau pour n'être bornée par aucun défilement. */
+/* La tuile portée. Elle vit hors du plateau pour n'être bornée par aucun défilement. */
 .drag-ghost {
   position: fixed;
   top: 0;
@@ -184,16 +202,17 @@ body {
   display: flex;
   gap: 3px;
   pointer-events: none;
-  filter: drop-shadow(0 12px 18px rgba(8, 23, 17, 0.65));
+  filter: drop-shadow(0 14px 20px rgba(8, 23, 17, 0.7));
 }
 
 .drag-ghost .tile {
   animation: none;
-  transform: scale(1.08) rotate(-2deg);
+  transform: scale(1.1);
   border-color: var(--gold);
+  border-width: 2px;
 }
 
-/* Destination visée sous le doigt. */
+/* Destination visée. */
 .drop-target {
   outline: 2px dashed var(--gold-bright);
   outline-offset: 3px;
@@ -202,6 +221,15 @@ body {
 
 .board.drop-target {
   outline-offset: -6px;
+}
+
+/* Repère d'insertion : un liseré doré sur la tuile voisine, qui ne décale rien. */
+.tile.insert-before {
+  box-shadow: -5px 0 0 -1px var(--gold-bright), 0 3px 6px rgba(8, 23, 17, 0.55);
+}
+
+.tile.insert-after {
+  box-shadow: 5px 0 0 -1px var(--gold-bright), 0 3px 6px rgba(8, 23, 17, 0.55);
 }
 
 .tile.board {
@@ -622,26 +650,33 @@ body {
 
 .actions::-webkit-scrollbar { display: none; }
 
+/* Chevalet : deux rangées, toutes les tuiles visibles d'un coup, aucun défilement. */
 .rack {
   display: flex;
-  align-items: flex-end;
-  /* « safe » évite que le centrage ne rende les premières tuiles inatteignables quand la
-     rangée déborde et doit défiler. */
-  justify-content: safe center;
-  gap: 4px;
-  padding: 0.7rem 0.7rem 0.6rem;
-  min-height: calc(var(--tile-h) + 1.4rem);
-  background: linear-gradient(180deg, var(--rack-wood-light) 0%, var(--rack-wood) 12%, var(--rack-wood-dark) 100%);
-  overflow-x: auto;
-  overflow-y: hidden;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.6rem;
+  background: linear-gradient(180deg, var(--rack-wood-light) 0%, var(--rack-wood) 10%, var(--rack-wood-dark) 100%);
+  /* Un liseré clair marque la lèvre du chevalet, comme la baguette de bois. */
+  border-top: 2px solid rgba(255, 255, 255, 0.10);
 }
 
-.rack::-webkit-scrollbar { display: none; }
+.rack-grid {
+  /* Une main qui gonfle à force de piocher ne doit pas déborder de l'écran : les tuiles du
+     chevalet rétrécissent alors juste ce qu'il faut pour que la rangée tienne. */
+  --tile-w: min(
+    var(--tile-base-w),
+    (100vw - 2.4rem - (var(--rack-columns, 7) - 1) * 4px) / var(--rack-columns, 7)
+  );
+  --tile-h: calc(var(--tile-w) / 0.74);
+  display: grid;
+  grid-template-columns: repeat(var(--rack-columns, 7), var(--tile-w));
+  gap: 4px;
+  justify-content: center;
+}
 
 .rack .empty {
-  margin: auto;
+  padding: 1.4rem 0;
   font-size: 0.82rem;
   color: var(--tile-bottom);
 }
