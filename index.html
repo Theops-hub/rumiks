@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<title>Rumiks</title>
+
+<!-- viewport-fit=cover fait passer la page sous les coins arrondis et la barre d'état ; les
+     marges de sécurité sont ensuite reprises en CSS avec env(safe-area-inset-*). -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+<!-- Ajout à l'écran d'accueil sur iPad : sans ces deux lignes, Safari rouvrirait le jeu dans un
+     onglet avec sa barre d'adresse au lieu du plein écran. -->
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Rumiks">
+<meta name="theme-color" content="#0D2119">
+<meta name="description" content="Rummikub hors ligne contre des joueurs virtuels, règles officielles.">
+
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ------------------------------------------------------------------ accueil -->
+  <section id="home" class="screen">
+    <header class="brand">
+      <div class="brand-tiles" id="brand-tiles"></div>
+      <div class="brand-text">
+        <h1>RUMIKS</h1>
+        <p>Le jeu de tuiles, règles officielles</p>
+      </div>
+    </header>
+
+    <div class="home-row">
+      <span class="section-label">Adversaires</span>
+      <div class="pills" id="opponent-pills"></div>
+      <span class="grow"></span>
+      <button type="button" class="link" id="btn-rules-home">Voir les règles</button>
+      <button type="button" class="btn" id="btn-resume" hidden>Reprendre</button>
+      <button type="button" class="btn btn-primary" id="btn-start">Commencer la partie</button>
+    </div>
+
+    <span class="section-label">Niveau des joueurs virtuels</span>
+    <div class="difficulty-cards" id="difficulty-cards"></div>
+  </section>
+
+  <!-- ------------------------------------------------------------------ partie -->
+  <section id="game" class="screen" hidden>
+    <header class="players-bar">
+      <div class="players" id="players"></div>
+      <span class="grow"></span>
+      <span class="pool" id="pool-count"></span>
+      <button type="button" class="chip-btn" id="btn-sound">Son</button>
+      <button type="button" class="chip-btn" id="btn-haptics">Vibration</button>
+      <button type="button" class="chip-btn" id="btn-quit">Quitter</button>
+    </header>
+
+    <main class="board" id="board"></main>
+
+    <div class="status" id="status"></div>
+
+    <div class="actions">
+      <button type="button" class="chip-btn" id="btn-return">Remettre en main</button>
+      <button type="button" class="chip-btn" id="btn-sort-color">Trier couleur</button>
+      <button type="button" class="chip-btn" id="btn-sort-number">Trier numéro</button>
+      <button type="button" class="chip-btn" id="btn-rules">Règles</button>
+      <span class="grow"></span>
+      <button type="button" class="chip-btn" id="btn-undo">Annuler</button>
+      <button type="button" class="chip-btn" id="btn-draw">Piocher</button>
+      <button type="button" class="chip-btn chip-primary" id="btn-commit">Valider</button>
+    </div>
+
+    <footer class="rack" id="rack"></footer>
+  </section>
+</div>
+
+<!-- ------------------------------------------------------------------ fenêtres -->
+<div class="modal" id="rules-modal" hidden>
+  <div class="modal-card">
+    <h2>Règles du jeu</h2>
+    <div class="modal-body" id="rules-body"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-primary" id="btn-rules-close">Fermer</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="round-end-modal" hidden>
+  <div class="modal-card">
+    <h2 id="round-end-title"></h2>
+    <div class="modal-body" id="round-end-body"></div>
+    <div class="modal-actions">
+      <button type="button" class="btn" id="btn-round-home">Menu</button>
+      <button type="button" class="btn btn-primary" id="btn-next-round">Manche suivante</button>
+    </div>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
