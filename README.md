@@ -5,6 +5,7 @@ niveaux. Deux versions partagent le même moteur et les mêmes règles :
 
 - **`web/`** — version web installable sur l'écran d'accueil d'un iPad, jouable hors ligne.
   C'est la version destinée à l'usage réel ; voir [web/README.md](web/README.md).
+  **Jouer : <https://theops-hub.github.io/rumiks/>**
 - **`app/`** — application Android native en Kotlin et Jetpack Compose, décrite ci-dessous.
 
 > Le nom « Rummikub » est une marque déposée de Lemada Light Industries. Les règles d'un jeu ne
