@@ -1,5 +1,6 @@
 // Point d'entrée : assemble l'état, l'interface et les retours sensoriels.
 
+import { enableDragAndDrop } from './dragdrop.js';
 import { createFeedback, supportsVibration } from './feedback.js';
 import { createGame } from './game.js';
 import { createUi } from './ui.js';
@@ -15,6 +16,14 @@ const feedback = createFeedback({
 });
 
 const ui = createUi(game);
+
+// Le même geste sert à attraper une tuile et à la sélectionner : le module distingue le tap du
+// déplacement selon que le doigt bouge ou non.
+enableDragAndDrop({
+  root: document.getElementById('game'),
+  game,
+  onDropped: () => ui.render(),
+});
 
 // ------------------------------------------------------------------ commandes
 
@@ -51,7 +60,19 @@ rulesModal.addEventListener('click', (event) => {
 });
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') closeRules();
+  if (event.key === 'Escape') {
+    closeRules();
+    return;
+  }
+  // Les tuiles restent atteignables au clavier : le glisser-déposer ne doit pas être le seul
+  // chemin. Entrée ou Espace sélectionne, les boutons de dépôt font le reste.
+  if (event.key === 'Enter' || event.key === ' ') {
+    const tile = event.target.closest?.('.tile.playable');
+    if (tile?.dataset.tileId) {
+      event.preventDefault();
+      game.toggleSelection(Number(tile.dataset.tileId));
+    }
+  }
 });
 
 // Le vibreur n'existe pas sur iPad : autant ne pas proposer un réglage sans effet.

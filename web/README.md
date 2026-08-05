@@ -22,6 +22,23 @@ connexion — c'est vérifié par un test automatisé qui recharge la page rése
 > mode hors ligne ne s'active pas : Safari refuse d'installer un service worker sur une origine
 > non sécurisée.
 
+## Jouer
+
+**On attrape une tuile et on la pose**, comme sur une vraie table : depuis le chevalet vers le
+tapis pour créer une combinaison, sur une combinaison existante pour la compléter — la tuile
+s'insère à l'endroit visé —, d'une combinaison à l'autre pour remanier la table, et vers le
+chevalet pour reprendre une tuile descendue par erreur. Une tuile posée avant le tour, elle,
+reste sur la table : les règles l'exigent, et le jeu le refuse avec un message.
+
+Toucher une tuile sans la déplacer la sélectionne ; glisser une tuile sélectionnée emporte tout
+le groupe, ce qui permet de déplacer une combinaison entière d'un geste. Les boutons `+` restent
+disponibles pour qui préfère désigner sa cible plutôt que viser, et les tuiles sont atteignables
+au clavier.
+
+Une combinaison incomplète ou fausse s'entoure de rouge, et **Valider** ne s'active que lorsque
+toute la table est correcte et qu'au moins une tuile a été descendue. **Annuler** rétablit la
+situation du début de tour, **Piocher** termine le tour.
+
 ## Essayer depuis cet ordinateur
 
 ```

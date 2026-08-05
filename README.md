@@ -56,9 +56,12 @@ Un plafond de nœuds et une limite de temps garantissent que l'interface ne se f
 `DifficultyTest` fait s'affronter les niveaux et vérifie que la hiérarchie se traduit bien en
 manches gagnées et en tuiles descendues.
 
-## Jouer
+## Jouer (version Android)
 
-L'interaction se fait par sélection puis dépôt, plus fiable au doigt qu'un glisser-déposer :
+> La version web, elle, se joue au **glisser-déposer** : on attrape une tuile et on la pose,
+> comme sur une vraie table. Voir [web/README.md](web/README.md).
+
+Sur Android, l'interaction se fait par sélection puis dépôt :
 
 1. toucher une ou plusieurs tuiles du chevalet — ou de la table — pour les sélectionner ;
 2. toucher le bouton `+` d'une combinaison pour y déposer la sélection, ou

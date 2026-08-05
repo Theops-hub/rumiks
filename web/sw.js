@@ -4,7 +4,9 @@
 // publication d'une version : la totalité est mise en cache à l'installation, puis servie
 // depuis le cache. Rien n'est chargé à la demande, donc rien ne peut manquer hors ligne.
 
-const CACHE = 'rumiks-v1';
+// Numéro à incrémenter à chaque publication : c'est ce qui déclenche la mise à jour du cache
+// chez les joueurs, l'ancien étant supprimé à l'activation.
+const CACHE = 'rumiks-v2';
 
 const ASSETS = [
   './',
@@ -13,6 +15,7 @@ const ASSETS = [
   './manifest.webmanifest',
   './js/main.js',
   './js/ui.js',
+  './js/dragdrop.js',
   './js/game.js',
   './js/engine.js',
   './js/rules.js',
