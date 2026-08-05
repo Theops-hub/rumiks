@@ -1,0 +1,16 @@
+# Sorties de construction
+build/
+app/build/
+.gradle/
+*.apk
+*.aab
+
+# Chemins propres à une machine : le SDK Android n'est pas au même endroit chez tout le monde.
+local.properties
+
+# Outils
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+node_modules/

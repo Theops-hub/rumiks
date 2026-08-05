@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Thème de fenêtre uniquement : toute l'UI est en Compose. -->
+    <style name="Theme.Rumiks" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/felt_dark</item>
+        <!-- Barres transparentes : le tapis est peint jusqu'aux bords de l'écran. -->
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

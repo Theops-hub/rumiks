@@ -1,0 +1,706 @@
+/* Rumiks — habillage du jeu.
+ *
+ * Cible principale : un iPad ajouté à l'écran d'accueil, donc sans barre d'adresse ni barre
+ * d'onglets. La page occupe exactement la fenêtre, ne défile jamais dans son ensemble, et
+ * réserve les marges de sécurité (encoche, indicateur de bas d'écran) avec env(safe-area-*).
+ */
+
+:root {
+  --felt-center: #1e4a38;
+  --felt: #14352a;
+  --felt-raised: #1d4a3a;
+  --felt-edge: #0d2119;
+  --felt-deep: #081711;
+
+  --rack-wood-light: #57402c;
+  --rack-wood: #3e2c1e;
+  --rack-wood-dark: #27190e;
+
+  --tile-top: #fbf5e8;
+  --tile-bottom: #e8dcc2;
+  --tile-edge: #8c7a5c;
+
+  --gold: #e0b252;
+  --gold-bright: #f3ce7c;
+  --alert: #e05c4b;
+  --text: #ede7da;
+  --text-dim: #cfc7b6;
+
+  --ink-black: #23201c;
+  --ink-red: #c0392b;
+  --ink-blue: #1f6fa8;
+  --ink-orange: #d98014;
+
+  /* La tuile se cale sur la plus contraignante des deux dimensions : la hauteur de l'écran,
+     et la place nécessaire pour aligner un chevalet de quatorze tuiles sans le comprimer.
+     Le plancher de 34 px garde une cible tactile atteignable même sur un petit écran. */
+  --tile-w: clamp(34px, min(8vh, (100vw - 2rem) / 15), 72px);
+  --tile-h: calc(var(--tile-w) / 0.74);
+  --tile-w-board: calc(var(--tile-w) * 0.86);
+  --tile-h-board: calc(var(--tile-h) * 0.86);
+
+  --radius: 12px;
+  --ease-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+
+body {
+  position: fixed;
+  inset: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
+  color: var(--text);
+  background: var(--felt-deep);
+  /* Empêche la loupe de sélection et le zoom par double appui pendant le jeu. */
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+#app {
+  position: absolute;
+  inset: 0;
+  /* dvh suit la hauteur réellement visible ; vh sert de repli aux navigateurs plus anciens. */
+  height: 100vh;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 120% at 50% 42%, var(--felt-center) 0%, var(--felt) 48%, var(--felt-edge) 100%);
+  padding:
+    env(safe-area-inset-top)
+    env(safe-area-inset-right)
+    env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+}
+
+.screen {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.screen[hidden] {
+  display: none;
+}
+
+.grow {
+  flex: 1;
+}
+
+/* ------------------------------------------------------------------ tuiles */
+
+.tile {
+  position: relative;
+  flex: 0 0 auto;
+  width: var(--tile-w);
+  height: var(--tile-h);
+  border: 1px solid rgba(140, 122, 92, 0.55);
+  border-radius: calc(var(--tile-w) * 0.16);
+  background: linear-gradient(180deg, var(--tile-top) 0%, var(--tile-bottom) 100%);
+  box-shadow: 0 3px 6px rgba(8, 23, 17, 0.55);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: calc(var(--tile-h) * 0.05);
+  font-weight: 800;
+  font-size: calc(var(--tile-h) * 0.42);
+  line-height: 1;
+  transition:
+    transform 0.22s var(--ease-spring),
+    box-shadow 0.22s ease,
+    border-color 0.2s ease;
+  animation: tile-in 0.24s var(--ease-spring) both;
+}
+
+/* Reflet sur l'arête supérieure : c'est lui qui donne l'épaisseur à la tuile. */
+.tile::before {
+  content: '';
+  position: absolute;
+  inset: 1px 1px auto 1px;
+  height: 22%;
+  border-radius: calc(var(--tile-w) * 0.14) calc(var(--tile-w) * 0.14) 0 0;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0));
+  pointer-events: none;
+}
+
+.tile .dot {
+  width: calc(var(--tile-w) * 0.17);
+  height: calc(var(--tile-w) * 0.17);
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.9;
+}
+
+.tile.black { color: var(--ink-black); }
+.tile.red { color: var(--ink-red); }
+.tile.blue { color: var(--ink-blue); }
+.tile.orange { color: var(--ink-orange); }
+
+.tile.joker .value {
+  font-size: calc(var(--tile-h) * 0.4);
+}
+
+.tile.selected {
+  transform: translateY(-10px) scale(1.06);
+  border-color: var(--gold);
+  border-width: 2px;
+  box-shadow: 0 10px 18px rgba(8, 23, 17, 0.7);
+}
+
+.tile.playable:active {
+  transform: scale(0.94);
+}
+
+.tile.board {
+  width: var(--tile-w-board);
+  height: var(--tile-h-board);
+  font-size: calc(var(--tile-h-board) * 0.42);
+}
+
+@keyframes tile-in {
+  from { opacity: 0; transform: scale(0.86); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+/* ------------------------------------------------------------------ accueil */
+
+#home {
+  gap: 0.7rem;
+  padding: clamp(0.5rem, 2vh, 1.4rem) clamp(0.8rem, 3vw, 2rem);
+  overflow-y: auto;
+  /* Le contenu est centré dans la hauteur disponible plutôt qu'étiré : sur un grand iPad, des
+     cartes de deux mètres de haut feraient plus vide que généreux. */
+  justify-content: center;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  justify-content: center;
+}
+
+.brand-tiles {
+  display: flex;
+  gap: 0.35rem;
+}
+
+.brand-tiles .tile {
+  animation: sway 3.4s ease-in-out infinite alternate;
+}
+
+.brand-tiles .tile:nth-child(1) { animation-delay: -0.6s; }
+.brand-tiles .tile:nth-child(3) { animation-delay: -1.2s; }
+
+@keyframes sway {
+  from { transform: rotate(-2deg); }
+  to { transform: rotate(2deg); }
+}
+
+.brand-text h1 {
+  margin: 0;
+  font-size: clamp(1.8rem, 4.4vh, 2.6rem);
+  letter-spacing: 0.04em;
+  color: var(--gold-bright);
+}
+
+.brand-text p {
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.section-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--gold);
+}
+
+.home-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.pills {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.pill {
+  min-width: 3rem;
+  min-height: 2.75rem;
+  padding: 0.6rem 1.1rem;
+  border: 1px solid rgba(140, 122, 92, 0.4);
+  border-radius: 11px;
+  background: var(--felt-raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: transform 0.22s var(--ease-spring), background 0.22s ease, color 0.22s ease;
+}
+
+.pill[aria-pressed='true'] {
+  background: var(--gold);
+  border-color: var(--gold-bright);
+  color: var(--felt-deep);
+  transform: scale(1.08);
+  box-shadow: 0 6px 14px rgba(8, 23, 17, 0.5);
+}
+
+.difficulty-cards {
+  display: flex;
+  gap: 0.7rem;
+  flex: 0 0 auto;
+}
+
+.difficulty-card {
+  flex: 1;
+  /* Un bouton centre son contenu par défaut ; on remet le texte en haut à gauche. */
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgba(140, 122, 92, 0.3);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--felt-edge), var(--felt-deep));
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease;
+}
+
+.difficulty-card[aria-pressed='true'] {
+  border: 2px solid var(--gold);
+  background: linear-gradient(180deg, var(--felt-raised), var(--felt-center));
+  box-shadow: 0 10px 20px rgba(8, 23, 17, 0.55);
+}
+
+.difficulty-card h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1.05rem;
+  color: var(--text);
+}
+
+.difficulty-card[aria-pressed='true'] h3 {
+  color: var(--gold-bright);
+}
+
+.difficulty-card p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+
+/* ------------------------------------------------------------------ boutons */
+
+.btn {
+  min-height: 2.9rem;
+  padding: 0.7rem 1.3rem;
+  border: 1px solid rgba(140, 122, 92, 0.45);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--felt-raised), var(--felt));
+  color: var(--text);
+  font: inherit;
+  font-weight: 800;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.15s var(--ease-spring), filter 0.2s ease;
+}
+
+.btn:active { transform: scale(0.95); }
+
+.btn-primary {
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  border-color: var(--gold-bright);
+  color: var(--felt-deep);
+  box-shadow: 0 6px 16px rgba(8, 23, 17, 0.5);
+}
+
+.link {
+  border: 0;
+  background: none;
+  color: var(--gold);
+  font: inherit;
+  font-weight: 700;
+  padding: 0.7rem 0.5rem;
+  cursor: pointer;
+}
+
+.chip-btn {
+  min-height: 2.5rem;
+  padding: 0.5rem 0.85rem;
+  border: 1px solid rgba(140, 122, 92, 0.3);
+  border-radius: 10px;
+  background: var(--felt-raised);
+  color: var(--text);
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.78rem;
+  white-space: nowrap;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(8, 23, 17, 0.4);
+  transition: transform 0.15s var(--ease-spring), background 0.22s ease, color 0.22s ease;
+}
+
+.chip-btn:active:not(:disabled) { transform: scale(0.93); }
+
+.chip-btn:disabled {
+  background: var(--felt-edge);
+  color: rgba(207, 199, 182, 0.35);
+  box-shadow: none;
+  cursor: default;
+}
+
+.chip-btn.chip-primary:not(:disabled),
+.chip-btn[aria-pressed='true'] {
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  border-color: var(--gold-bright);
+  color: var(--felt-deep);
+}
+
+/* ------------------------------------------------------------------ partie */
+
+.players-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.6rem;
+  background: linear-gradient(180deg, var(--felt-edge), var(--felt-deep));
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.players-bar::-webkit-scrollbar { display: none; }
+
+.players {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.player-chip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(140, 122, 92, 0.3);
+  border-radius: 9px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.player-chip.active {
+  border-color: var(--gold);
+  color: var(--gold-bright);
+  font-weight: 800;
+  animation: breathe 1.4s ease-in-out infinite alternate;
+}
+
+@keyframes breathe {
+  from { background: rgba(224, 178, 82, 0.14); }
+  to { background: rgba(224, 178, 82, 0.32); }
+}
+
+.player-chip .marker {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--tile-edge);
+}
+
+.player-chip.opened .marker { background: var(--gold); }
+
+.player-chip .tally {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.pool {
+  font-size: 0.75rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+  margin-right: 0.3rem;
+}
+
+.board {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Tant que rien n'est posé, la consigne se place au milieu du tapis plutôt qu'en haut. */
+.board.empty {
+  align-content: center;
+  justify-content: center;
+}
+
+.board-empty {
+  max-width: 28rem;
+  text-align: center;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.meld {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid rgba(140, 122, 92, 0.35);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--felt-raised), var(--felt));
+  scrollbar-width: none;
+  transition: border-color 0.25s ease;
+  animation: meld-in 0.26s var(--ease-spring) both;
+}
+
+.meld::-webkit-scrollbar { display: none; }
+
+.meld.invalid {
+  border: 2px solid var(--alert);
+}
+
+@keyframes meld-in {
+  from { opacity: 0; transform: scale(0.9); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.drop-btn {
+  flex: 0 0 auto;
+  width: calc(var(--tile-w-board) * 0.8);
+  height: var(--tile-h-board);
+  margin-left: 3px;
+  border: 0;
+  border-radius: 9px;
+  background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+  color: var(--felt-deep);
+  font: inherit;
+  font-size: 1.4rem;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 3px 7px rgba(8, 23, 17, 0.5);
+  animation: tile-in 0.2s ease both;
+}
+
+.drop-btn:active { transform: scale(0.9); }
+
+.new-meld-zone {
+  display: flex;
+  align-items: center;
+  padding: 0 1rem;
+  min-height: calc(var(--tile-h-board) + 10px);
+  border: 2px dashed var(--gold);
+  border-radius: var(--radius);
+  background: rgba(29, 74, 58, 0.5);
+  color: var(--gold-bright);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 800;
+  cursor: pointer;
+  animation: beckon 1.2s ease-in-out infinite alternate;
+}
+
+@keyframes beckon {
+  from { border-color: rgba(224, 178, 82, 0.45); }
+  to { border-color: rgba(243, 206, 124, 1); }
+}
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 1.9rem;
+  padding: 0.25rem 0.8rem;
+  background: linear-gradient(180deg, var(--felt-deep), var(--felt-edge));
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.status.warning { color: var(--alert); }
+
+.status .spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(224, 178, 82, 0.25);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  animation: spin 0.9s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.status .text {
+  animation: status-in 0.24s ease both;
+}
+
+@keyframes status-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.actions::-webkit-scrollbar { display: none; }
+
+.rack {
+  display: flex;
+  align-items: flex-end;
+  /* « safe » évite que le centrage ne rende les premières tuiles inatteignables quand la
+     rangée déborde et doit défiler. */
+  justify-content: safe center;
+  gap: 4px;
+  padding: 0.7rem 0.7rem 0.6rem;
+  min-height: calc(var(--tile-h) + 1.4rem);
+  background: linear-gradient(180deg, var(--rack-wood-light) 0%, var(--rack-wood) 12%, var(--rack-wood-dark) 100%);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.rack::-webkit-scrollbar { display: none; }
+
+.rack .empty {
+  margin: auto;
+  font-size: 0.82rem;
+  color: var(--tile-bottom);
+}
+
+/* ------------------------------------------------------------------ fenêtres */
+
+.modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(8, 23, 17, 0.72);
+  z-index: 10;
+  animation: fade-in 0.18s ease both;
+}
+
+.modal[hidden] { display: none; }
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.modal-card {
+  width: min(38rem, 100%);
+  max-height: 86vh;
+  max-height: 86dvh;
+  display: flex;
+  flex-direction: column;
+  padding: 1.1rem 1.3rem;
+  border: 1px solid rgba(140, 122, 92, 0.4);
+  border-radius: 18px;
+  background: linear-gradient(180deg, var(--felt-raised), var(--felt));
+  box-shadow: 0 20px 44px rgba(0, 0, 0, 0.5);
+  animation: card-in 0.24s var(--ease-spring) both;
+}
+
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.96); }
+  to { opacity: 1; transform: none; }
+}
+
+.modal-card h2 {
+  margin: 0 0 0.6rem;
+  color: var(--gold-bright);
+  font-size: 1.2rem;
+}
+
+.modal-body {
+  overflow-y: auto;
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.modal-body h3 {
+  margin: 0.8rem 0 0.15rem;
+  font-size: 0.85rem;
+  color: var(--gold);
+}
+
+.modal-body h3:first-child { margin-top: 0; }
+
+.modal-body p { margin: 0; color: var(--text); }
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.6rem;
+  padding-top: 0.9rem;
+}
+
+.score-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0;
+}
+
+.score-row .name { flex: 1; font-weight: 700; }
+.score-row.winner .name { color: var(--gold-bright); }
+.score-row .left { font-size: 0.78rem; color: var(--text-dim); }
+.score-row .score { font-weight: 800; min-width: 3rem; text-align: right; }
+.score-row .score.positive { color: var(--gold); }
+.score-row .score.negative { color: var(--alert); }
+
+/* Sur un écran vraiment étroit ou bas de plafond, on resserre plutôt que de faire défiler. */
+@media (max-height: 420px) {
+  :root { --tile-w: clamp(28px, min(5.6vh, (100vw - 2rem) / 15), 48px); }
+  .brand-text h1 { font-size: 1.5rem; }
+  .difficulty-card p { font-size: 0.75rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

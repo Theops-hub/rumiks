@@ -1,0 +1,12 @@
+{
+  "name": "rumiks-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Rumiks : version web installable du jeu de tuiles",
+  "//": "type=module fait lire les fichiers .js comme des modules ES par Node, comme le fait déjà le navigateur. Aucune dépendance : le jeu se sert tel quel.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/",
+    "serve": "node tools/serve.js"
+  }
+}
