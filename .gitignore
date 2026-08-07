@@ -4,3 +4,11 @@
 .DS_Store
 Thumbs.db
 node_modules/
+
+# Secrets locaux — ne jamais committer
+.env
+.env.*
+.env.bak
+!.env.example
+!.env.sample
+!.env.template
