@@ -363,6 +363,21 @@ export function createGame({ onChange, onFeedback }) {
       return false;
     }
 
+    // Le joker posé ne se prend pas à la main : il se récupère en posant, depuis le chevalet,
+    // la tuile qu'il représente — il revient alors de lui-même dans le jeu du joueur.
+    const jokerGrabbed = moved.some((t) => t.isJoker
+      && committedJokers.has(t.id)
+      && state.workBoard.some((m) => m.tiles.some((x) => x.id === t.id))
+      && leavesItsMeld(t));
+    if (jokerGrabbed) {
+      update({
+        message: 'Le joker se récupère en le remplaçant : posez depuis votre chevalet la tuile qu\'il représente, et il reviendra dans votre jeu.',
+        selection: new Set(),
+      });
+      emit('reject');
+      return false;
+    }
+
     if (target.kind === 'rack') {
       // Les règles interdisent de reprendre une tuile posée avant ce tour — sauf le joker,
       // qui se récupère en le remplaçant et devra être rejoué avant la fin du tour.
@@ -417,11 +432,11 @@ export function createGame({ onChange, onFeedback }) {
           ? m.tiles.length
           : Math.max(0, Math.min(target.index, m.tiles.length));
         let tiles = reorder([...m.tiles.slice(0, at), ...moved, ...m.tiles.slice(at)]);
-        // Un joker de la table rendu superflu par un apport extérieur est récupéré : il
-        // rejoint le chevalet, avec l'obligation d'être rejoué avant la fin du tour. Un
-        // simple réarrangement interne, comme les jokers que le joueur vient lui-même de
-        // déposer, ne déloge rien.
-        while (!pureReorder) {
+        // Un joker de la table rendu superflu par une pose venue du chevalet est récupéré : il
+        // rejoint la main du joueur, avec l'obligation d'être rejoué avant la fin du tour. Un
+        // apport prélevé sur le plateau ne remplace pas un joker, et un simple réarrangement
+        // interne, comme les jokers que le joueur vient lui-même de déposer, ne déloge rien.
+        while (!pureReorder && fromBoard.length === 0) {
           const spare = tiles.find((x) => x.isJoker
             && committedJokers.has(x.id)
             && !ids.has(x.id)
