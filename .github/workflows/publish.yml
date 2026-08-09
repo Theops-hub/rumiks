@@ -1,0 +1,24 @@
+# Publie le jeu : le contenu de web/ est poussé sur la branche gh-pages, que GitHub Pages sert
+# à l'adresse publique. Sans ce workflow, la publication était un `git subtree push` manuel,
+# facile à oublier après un push sur main.
+name: Publier le jeu
+
+on:
+  push:
+    branches: [main]
+    paths: ['web/**']
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # subtree split rejoue tout l'historique de web/ : il lui faut le clone complet.
+          fetch-depth: 0
+      - name: Pousser web/ vers gh-pages
+        run: |
+          git push --force origin "$(git subtree split --prefix web HEAD)":gh-pages
