@@ -380,6 +380,22 @@ body {
   color: var(--text-dim);
 }
 
+/* Barre d'expérience vers le niveau suivant. */
+.xp-bar {
+  height: 6px;
+  margin: 0.2rem 0;
+  border-radius: 3px;
+  background: rgba(8, 23, 17, 0.55);
+  overflow: hidden;
+}
+
+.xp-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  background: linear-gradient(90deg, var(--gold), var(--gold-bright));
+}
+
 /* ------------------------------------------------------------------ boutons */
 
 .btn {
@@ -761,7 +777,33 @@ body {
 .score-row .score.positive { color: var(--gold); }
 .score-row .score.negative { color: var(--alert); }
 
-/* Annonce de montée de niveau dans le bilan de manche. */
+/* Détail de l'expérience gagnée, dans le bilan de fin de partie. */
+.xp-summary {
+  margin-top: 0.6rem;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid rgba(224, 178, 82, 0.35);
+  border-radius: 10px;
+  background: rgba(8, 23, 17, 0.35);
+}
+
+.xp-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.6rem;
+  padding: 0.12rem 0;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.xp-row.total {
+  margin-top: 0.2rem;
+  padding-top: 0.3rem;
+  border-top: 1px solid rgba(224, 178, 82, 0.35);
+  font-weight: 800;
+  color: var(--gold-bright);
+}
+
+/* Annonce de montée de niveau dans le bilan de fin de partie. */
 .level-up {
   margin: 0.6rem 0 0;
   font-weight: 700;

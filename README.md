@@ -55,7 +55,7 @@ tuiles posées par les adversaires restent surlignées jusqu'à la fin de votre 
 ```
 cd web
 node tools/serve.js          # puis http://localhost:8080/
-node --test tests/engine.test.js   # la suite de tests du moteur
+node --test tests/*.test.js        # la suite de tests du moteur et de la progression
 ```
 
 Le serveur affiche aussi l'adresse à utiliser depuis un appareil du même réseau Wi-Fi, pratique
@@ -70,6 +70,7 @@ js/rules.js         tuiles, combinaisons et leur validation
 js/engine.js        état de partie, légalité d'un tour, distribution, décompte
 js/solver.js        solveur de combinaisons
 js/ai.js            stratégie des joueurs virtuels, dosée par le niveau du joueur
+js/progression.js   expérience gagnée en fin de partie et niveaux qui en découlent
 js/game.js          enchaînement des tours, manipulation en cours, sauvegarde
 js/ui.js            rendu de l'interface
 js/feedback.js      sons et vibrations
@@ -78,8 +79,8 @@ sw.js               service worker : tout en cache, jeu jouable sans réseau
 tests/              suite de tests du moteur, portée depuis la version Android
 ```
 
-Le moteur est un port fidèle du Kotlin : mêmes règles, mêmes cas limites, et la même suite de
-tests (45 cas, dont des manches entières jouées par l'IA en vérifiant chaque coup).
+Le moteur est un port fidèle du Kotlin, enrichi depuis : 58 cas de tests, dont des manches
+entières jouées par l'IA en vérifiant chaque coup.
 
 ## Occupation de l'écran
 

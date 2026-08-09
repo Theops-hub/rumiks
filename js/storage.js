@@ -25,12 +25,9 @@ export function loadGame() {
   }
 }
 
-export function saveGame({ difficulty, opponentCount, game, log }) {
+export function saveGame(payload) {
   try {
-    localStorage.setItem(
-      GAME_KEY,
-      JSON.stringify({ version: SAVE_VERSION, difficulty, opponentCount, game, log }),
-    );
+    localStorage.setItem(GAME_KEY, JSON.stringify({ version: SAVE_VERSION, ...payload }));
   } catch (error) {
     // Un quota dépassé ou un mode privé restrictif ne doit jamais interrompre la partie.
     console.warn('Sauvegarde impossible.', error);
@@ -46,17 +43,16 @@ export function clearGame() {
 }
 
 /**
- * Progression du joueur : son niveau, qui survit aux parties. Elle est volontairement séparée
- * de la sauvegarde de partie : commencer une nouvelle partie n'y touche pas.
+ * Progression du joueur : son expérience, qui survit aux parties. Elle est volontairement
+ * séparée de la sauvegarde de partie : commencer une nouvelle partie n'y touche pas. Le contenu
+ * est rendu brut, sa mise en forme relève de `progression.js` (`normalizeProgress`).
  */
 export function loadProgress() {
   try {
     const raw = localStorage.getItem(PROGRESS_KEY);
-    if (!raw) return { level: 1 };
-    const level = Number(JSON.parse(raw).level);
-    return { level: Number.isFinite(level) ? Math.max(Math.round(level), 1) : 1 };
+    return raw ? JSON.parse(raw) : null;
   } catch {
-    return { level: 1 };
+    return null;
   }
 }
 
