@@ -7,6 +7,8 @@ on:
   push:
     branches: [main]
     paths: ['web/**']
+  # Déclenchement à la main depuis l'onglet Actions, pour republier sans nouveau commit.
+  workflow_dispatch:
 
 permissions:
   contents: write
