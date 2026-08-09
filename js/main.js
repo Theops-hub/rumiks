@@ -107,6 +107,10 @@ document.addEventListener('touchmove', (event) => {
 
 ui.render();
 
+// Les positions libres du tapis sont exprimées en fraction de sa largeur : un changement de
+// taille de fenêtre demande un nouveau rendu pour les rétablir.
+window.addEventListener('resize', () => ui.render());
+
 // ------------------------------------------------------------------ hors ligne
 
 if ('serviceWorker' in navigator) {

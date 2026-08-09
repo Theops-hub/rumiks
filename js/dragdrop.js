@@ -107,6 +107,9 @@ export function enableDragAndDrop({ root, game, onDropped }) {
    * Position visée par la combinaison portée, parmi les autres : la rangée au-dessus du
    * pointeur passe avant, celle qui l'entoure se départage à sa moitié.
    */
+  /** Marge intérieure du tapis, alignée sur celle du rendu. */
+  const BOARD_PAD = 10;
+
   /** Combinaison sous le pointeur, la portée exclue : c'est la cible d'une fusion éventuelle. */
   function meldUnderPointer(clientX, clientY, draggedEl) {
     for (const el of root.querySelectorAll('#board .meld[data-meld-id]')) {
@@ -118,33 +121,32 @@ export function enableDragAndDrop({ root, game, onDropped }) {
     return null;
   }
 
-  function meldInsertion(clientX, clientY, draggedEl) {
-    const melds = [...root.querySelectorAll('#board .meld[data-meld-id]')]
-      .filter((el) => el !== draggedEl);
-    for (let i = 0; i < melds.length; i += 1) {
-      const box = melds[i].getBoundingClientRect();
-      if (clientY < box.top) return { index: i, element: melds[i], after: false };
-      if (clientY <= box.bottom && clientX < box.left + box.width / 2) {
-        return { index: i, element: melds[i], after: false };
-      }
-    }
-    const last = melds[melds.length - 1];
-    return { index: melds.length, element: last ?? null, after: true };
+  /** Convertit un point de l'écran en position libre sur le tapis (x en fraction, y en pixels). */
+  function boardPosition(left, top) {
+    const board = root.querySelector('#board');
+    const box = board.getBoundingClientRect();
+    const width = Math.max(board.clientWidth - BOARD_PAD * 2, 60);
+    return {
+      x: Math.min(Math.max((left - box.left - BOARD_PAD) / width, 0), 1),
+      y: Math.max(top - box.top + board.scrollTop - BOARD_PAD, 0),
+    };
   }
 
   function finishMeldDrag(event) {
-    const { ghost, meldEl, meldId, moved } = meldDrag;
+    const { ghost, meldEl, meldId, moved, grabX, grabY } = meldDrag;
     const over = moved ? meldUnderPointer(event.clientX, event.clientY, meldEl) : null;
-    const target = moved ? meldInsertion(event.clientX, event.clientY, meldEl) : null;
+    const dropLeft = event.clientX - grabX;
+    const dropTop = event.clientY - grabY;
     ghost?.remove();
     clearHighlight();
     meldEl.classList.remove('meld-dragging');
     meldDrag = null;
     if (!moved) return;
-    // Déposée sur une combinaison compatible, la série fusionne avec elle ; sinon le geste
-    // reste un repositionnement.
+    // Déposée sur une combinaison compatible, la série fusionne avec elle ; ailleurs sur le
+    // tapis, elle reste exactement où on la pose. Hors du tapis, rien ne bouge.
     if (over !== null && game.mergeMelds(meldId, Number(over.dataset.meldId))) return;
-    const done = game.moveMeld(meldId, target.index);
+    const board = document.elementFromPoint(event.clientX, event.clientY)?.closest('#board');
+    const done = board ? game.placeMeld(meldId, boardPosition(dropLeft, dropTop)) : false;
     if (!done) onDropped();
   }
 
@@ -205,7 +207,10 @@ export function enableDragAndDrop({ root, game, onDropped }) {
       return { element: rack, target: { kind: 'rack', index: insertionIndex(rack, centreX) } };
     }
     const board = under?.closest('#board');
-    if (board) return { element: board, target: { kind: 'new' } };
+    if (board) {
+      // La nouvelle combinaison naît à l'endroit exact du dépôt.
+      return { element: board, target: { kind: 'new', position: boardPosition(rect.left, rect.top) } };
+    }
     return null;
   }
 
@@ -324,16 +329,11 @@ export function enableDragAndDrop({ root, game, onDropped }) {
         `translate(${event.clientX - meldDrag.grabX}px, ${event.clientY - meldDrag.grabY}px)`;
 
       clearHighlight();
-      // Survoler une combinaison compatible annonce la fusion ; ailleurs, le liseré montre où
-      // la série va se repositionner.
+      // Survoler une combinaison compatible annonce la fusion ; ailleurs, la série ira
+      // exactement où on la pose.
       const over = meldUnderPointer(event.clientX, event.clientY, meldDrag.meldEl);
       if (over !== null && game.canMergeMelds(meldDrag.meldId, Number(over.dataset.meldId))) {
         over.classList.add('drop-target');
-      } else {
-        const target = meldInsertion(event.clientX, event.clientY, meldDrag.meldEl);
-        if (target.element !== null) {
-          target.element.classList.add(target.after ? 'insert-after' : 'insert-before');
-        }
       }
       return;
     }

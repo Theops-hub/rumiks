@@ -190,6 +190,19 @@ export function createUi(game) {
 
     const empty = ui.workBoard.length === 0 && ui.selection.size === 0;
     host.className = `board${empty ? ' empty' : ''}`;
+
+    // Le bandeau des coups adverses survole le tapis quelques secondes.
+    if (ui.aiBanner?.length) {
+      const banner = document.createElement('div');
+      banner.className = 'ai-banner';
+      for (const line of ui.aiBanner) {
+        const item = document.createElement('span');
+        item.textContent = line;
+        banner.append(item);
+      }
+      host.append(banner);
+    }
+
     if (empty) {
       const hint = document.createElement('p');
       hint.className = 'board-empty';
@@ -198,6 +211,7 @@ export function createUi(game) {
       return;
     }
 
+    const rows = [];
     for (const meld of ui.workBoard) {
       const sound = meld.tiles.length >= 3 && analyseMeld(meld.tiles) !== null;
       const row = document.createElement('div');
@@ -229,6 +243,7 @@ export function createUi(game) {
         row.append(drop);
       }
       host.append(row);
+      rows.push({ row, meld });
     }
 
     if (derived.isHumanTurn && ui.selection.size > 0) {
@@ -239,6 +254,76 @@ export function createUi(game) {
       zone.addEventListener('click', () => game.placeSelection(null));
       host.append(zone);
     }
+
+    layoutBoard(host, rows, ui.layout ?? {});
+  }
+
+  /** Marges du tapis libre, en pixels. */
+  const BOARD_PAD = 10;
+  const PACK_GAP = 12;
+
+  /** Vrai si deux rectangles se chevauchent, marge de respiration comprise. */
+  function overlaps(a, b) {
+    return a.left < b.right + PACK_GAP
+      && a.right > b.left - PACK_GAP
+      && a.top < b.bottom + PACK_GAP
+      && a.bottom > b.top - PACK_GAP;
+  }
+
+  /** Premier emplacement libre pour un rectangle `w` × `h`, en balayant de haut en bas. */
+  function findSpot(w, h, rects, width) {
+    const step = 14;
+    for (let top = BOARD_PAD; top < 6000; top += step) {
+      for (let left = BOARD_PAD; left + w <= BOARD_PAD + width; left += step) {
+        const candidate = { left, top, right: left + w, bottom: top + h };
+        if (!rects.some((r) => overlaps(candidate, r))) return candidate;
+      }
+    }
+    return { left: BOARD_PAD, top: BOARD_PAD, right: BOARD_PAD + w, bottom: BOARD_PAD + h };
+  }
+
+  /**
+   * Place chaque combinaison à l'endroit choisi par le joueur ; celles qui n'ont pas encore de
+   * place — poses des adversaires, moitiés d'une division — se rangent dans le premier espace
+   * libre. Les positions calculées sont mémorisées pour rester stables d'un rendu à l'autre.
+   */
+  function layoutBoard(host, rows, layout) {
+    const width = Math.max(host.clientWidth - BOARD_PAD * 2, 60);
+    const rects = [];
+    const pending = [];
+    for (const { row, meld } of rows) {
+      const w = Math.min(row.offsetWidth, width);
+      const h = row.offsetHeight;
+      const pos = layout[meld.id];
+      if (pos !== undefined) {
+        const left = BOARD_PAD + Math.min(Math.max(pos.x, 0) * width, width - w);
+        const top = BOARD_PAD + Math.max(pos.y, 0);
+        row.style.left = `${left}px`;
+        row.style.top = `${top}px`;
+        rects.push({ left, top, right: left + w, bottom: top + h });
+      } else {
+        pending.push({ row, meld, w, h });
+      }
+    }
+
+    const fresh = {};
+    for (const item of pending) {
+      const spot = findSpot(item.w, item.h, rects, width);
+      item.row.style.left = `${spot.left}px`;
+      item.row.style.top = `${spot.top}px`;
+      rects.push(spot);
+      fresh[item.meld.id] = { x: (spot.left - BOARD_PAD) / width, y: spot.top - BOARD_PAD };
+    }
+
+    // Les enfants absolus n'étirent pas le conteneur : une cale invisible donne au tapis la
+    // hauteur de son contenu, pour que le défilement fonctionne.
+    const bottom = rects.reduce((max, r) => Math.max(max, r.bottom), 0);
+    const sizer = document.createElement('div');
+    sizer.className = 'board-sizer';
+    sizer.style.height = `${bottom + BOARD_PAD}px`;
+    host.append(sizer);
+
+    game.rememberLayout(fresh);
   }
 
   function statusText(ui, derived) {
