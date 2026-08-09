@@ -37,9 +37,9 @@ const RULES = [
     'Deux jokers circulent, un rouge et un noir ; chacun remplace la tuile de son choix. Dans '
     + 'une suite, le joker vaut la place où vous le posez — devant, au milieu ou derrière — et '
     + 'les points suivent. Une combinaison qui contient un joker est bloquée : on peut la '
-    + 'compléter, mais pas en reprendre les tuiles. Remplacer le joker par la tuile qu\'il '
-    + 'représente le renvoie dans votre chevalet : il doit alors être rejoué avant la fin du '
-    + 'tour.'],
+    + 'compléter, mais pas en reprendre les tuiles. Le joker se récupère en posant, depuis son '
+    + 'chevalet, la tuile qu\'il représente — jamais une tuile prise sur la table — et il doit '
+    + 'alors être rejoué avant la fin du tour.'],
   ['Piocher',
     "Un joueur qui ne peut ou ne veut rien poser pioche une tuile et son tour s'achève."],
   ['Fin de la manche',

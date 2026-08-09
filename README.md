@@ -32,9 +32,10 @@ ce qui est posé, à condition de descendre au moins une tuile de sa main et de 
 entièrement valide en fin de tour.
 
 **Jokers.** Deux jokers circulent, un rouge et un noir. Une combinaison qui contient un joker est
-bloquée : on peut la compléter, mais pas en reprendre les tuiles. Remplacer le joker par la tuile
-qu'il représente le renvoie dans le chevalet, avec l'obligation de le rejouer avant la fin du
-tour. Plus généralement, aucune autre tuile posée ne peut être reprise en main.
+bloquée : on peut la compléter, mais pas en reprendre les tuiles. Le joker se récupère en posant,
+depuis son chevalet — jamais une tuile prise sur la table —, la tuile qu'il représente : il
+revient alors dans la main du joueur, avec l'obligation d'être rejoué avant la fin du tour. Plus
+généralement, aucune autre tuile posée ne peut être reprise en main.
 
 **Fin de manche et décompte.** Le premier joueur à vider son chevalet remporte la manche. Si la
 pioche s'épuise et que plus personne ne peut jouer, c'est le chevalet le plus léger qui gagne.
