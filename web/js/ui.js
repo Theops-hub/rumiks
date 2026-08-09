@@ -4,7 +4,13 @@
 // d'une centaine de tuiles : un rendu complet coûte moins d'une milliseconde et évite toute la
 // complexité d'une mise à jour incrémentale.
 
-import { EXTENDS_FROM_LEVEL, MAX_LEVEL, REARRANGES_FROM_LEVEL } from './ai.js';
+import { EXTENDS_FROM_LEVEL, REARRANGES_FROM_LEVEL } from './ai.js';
+import {
+  MANCHES_PER_GAME,
+  MAX_LEVEL,
+  xpFloorForLevel,
+  xpForNextLevel,
+} from './progression.js';
 import { HUMAN_INDEX, ROUND_END_RUMMIKUB, isRoundOver, rackPenalty } from './engine.js';
 import { COLORS, INITIAL_MELD_POINTS, JOKER_PENALTY, analyseMeld, tile } from './rules.js';
 
@@ -125,11 +131,27 @@ export function createUi(game) {
     title.textContent = `Niveau ${ui.level}`;
     const what = document.createElement('p');
     what.textContent = levelDescription(ui.level);
-    const hint = document.createElement('p');
-    hint.textContent = ui.level < MAX_LEVEL
-      ? 'Gagnez une manche pour passer au niveau suivant : les adversaires progressent avec vous.'
-      : 'Niveau maximum atteint : les adversaires jouent à leur meilleur.';
-    host.append(title, what, hint);
+    host.append(title, what);
+
+    if (ui.level < MAX_LEVEL) {
+      const inLevel = ui.xp - xpFloorForLevel(ui.level);
+      const needed = xpForNextLevel(ui.level);
+      const bar = document.createElement('div');
+      bar.className = 'xp-bar';
+      const fill = document.createElement('span');
+      fill.style.width = `${Math.min(100, Math.round((inLevel / needed) * 100))}%`;
+      bar.append(fill);
+      const progress = document.createElement('p');
+      progress.textContent = `${inLevel} / ${needed} XP avant le niveau ${ui.level + 1}`;
+      const hint = document.createElement('p');
+      hint.textContent = "L'expérience se gagne en fin de partie : tuiles posées, manches "
+        + 'gagnées, position au classement. Les adversaires progressent avec vous.';
+      host.append(bar, progress, hint);
+    } else {
+      const hint = document.createElement('p');
+      hint.textContent = 'Niveau maximum atteint : les adversaires jouent à leur meilleur.';
+      host.append(hint);
+    }
   }
 
   function renderHome(ui) {
@@ -162,6 +184,7 @@ export function createUi(game) {
       host.append(chip);
     });
     $('player-level').textContent = `Niveau ${ui.level}`;
+    $('manche-count').textContent = `Manche ${ui.partie.manche}/${MANCHES_PER_GAME}`;
     $('pool-count').textContent = `Pioche ${ui.game.pool.length}`;
   }
 
@@ -309,28 +332,41 @@ export function createUi(game) {
     }
   }
 
+  const RANK_LABELS = ['1ᵉʳ', '2ᵉ', '3ᵉ', '4ᵉ'];
+
   function renderRoundEnd(ui) {
     const game_ = ui.game;
     if (!game_ || !isRoundOver(game_)) return;
     const winner = game_.winnerIndex;
-    $('round-end-title').textContent = game_.endReason === ROUND_END_RUMMIKUB
-      ? 'Rummikub !'
-      : 'Partie bloquée';
+    $('round-end-title').textContent = ui.gameOver
+      ? 'Fin de partie'
+      : (game_.endReason === ROUND_END_RUMMIKUB ? 'Rummikub !' : 'Manche bloquée');
+    $('btn-next-round').textContent = ui.gameOver ? 'Nouvelle partie' : 'Manche suivante';
 
     const host = $('round-end-body');
     host.replaceChildren();
     const intro = document.createElement('p');
-    intro.textContent = game_.endReason === ROUND_END_RUMMIKUB
+    const mancheText = game_.endReason === ROUND_END_RUMMIKUB
       ? `${game_.players[winner].name} a posé sa dernière tuile.`
       : `La pioche est épuisée et plus personne ne peut jouer. ${game_.players[winner].name} conserve le chevalet le plus léger.`;
+    if (ui.gameOver) {
+      const best = game_.players.reduce((a, b) => (b.score > a.score ? b : a));
+      intro.textContent = `${mancheText} ${best.name} remporte la partie.`;
+    } else {
+      intro.textContent = `Manche ${ui.partie.manche} sur ${MANCHES_PER_GAME} — ${mancheText}`;
+    }
     host.append(intro);
 
-    game_.players.forEach((player, index) => {
+    // Bilan de manche : joueurs dans l'ordre de la table. Bilan de partie : au classement.
+    const players = game_.players.map((player, index) => ({ player, index }));
+    if (ui.gameOver) players.sort((a, b) => b.player.score - a.player.score);
+    players.forEach(({ player, index }, at) => {
       const row = document.createElement('div');
-      row.className = `score-row${index === winner ? ' winner' : ''}`;
+      const highlighted = ui.gameOver ? at === 0 : index === winner;
+      row.className = `score-row${highlighted ? ' winner' : ''}`;
       const name = document.createElement('span');
       name.className = 'name';
-      name.textContent = player.name;
+      name.textContent = ui.gameOver ? `${RANK_LABELS[at]} · ${player.name}` : player.name;
       const left = document.createElement('span');
       left.className = 'left';
       left.textContent = `${player.rack.length} tuile(s), ${rackPenalty(player)} pts en main`;
@@ -341,11 +377,44 @@ export function createUi(game) {
       host.append(row);
     });
 
-    if (ui.leveledUp) {
-      const levelUp = document.createElement('p');
-      levelUp.className = 'level-up';
-      levelUp.textContent = `Vous passez au niveau ${ui.level} : les adversaires seront plus coriaces.`;
-      host.append(levelUp);
+    if (ui.gameOver && ui.xpGain) {
+      const gains = [
+        [`Tuiles posées (${ui.partie.tilesLaid})`, ui.xpGain.tiles],
+        [`Manches gagnées (${ui.partie.manchesWon})`, ui.xpGain.manches],
+        [`Rummikub (${ui.partie.rummikubs})`, ui.xpGain.rummikubBonus],
+        [`Position finale (${RANK_LABELS[ui.xpGain.rank - 1]})`, ui.xpGain.position],
+      ];
+      const block = document.createElement('div');
+      block.className = 'xp-summary';
+      for (const [label, value] of gains) {
+        if (value <= 0) continue;
+        const row = document.createElement('div');
+        row.className = 'xp-row';
+        const text = document.createElement('span');
+        text.textContent = label;
+        const amount = document.createElement('span');
+        amount.textContent = `+${value} XP`;
+        row.append(text, amount);
+        block.append(row);
+      }
+      const total = document.createElement('div');
+      total.className = 'xp-row total';
+      const totalLabel = document.createElement('span');
+      totalLabel.textContent = 'Expérience gagnée';
+      const totalAmount = document.createElement('span');
+      totalAmount.textContent = `+${ui.xpGain.total} XP`;
+      total.append(totalLabel, totalAmount);
+      block.append(total);
+      host.append(block);
+
+      const levelLine = document.createElement('p');
+      levelLine.className = 'level-up';
+      levelLine.textContent = ui.leveledUp
+        ? `Vous passez au niveau ${ui.level} : les adversaires seront plus coriaces.`
+        : (ui.level < MAX_LEVEL
+          ? `Niveau ${ui.level} — ${ui.xp - xpFloorForLevel(ui.level)} / ${xpForNextLevel(ui.level)} XP avant le niveau ${ui.level + 1}.`
+          : `Niveau ${MAX_LEVEL} : le maximum.`);
+      host.append(levelLine);
     }
 
     const note = document.createElement('p');

@@ -39,13 +39,25 @@ tour. Plus généralement, aucune autre tuile posée ne peut être reprise en ma
 **Fin de manche et décompte.** Le premier joueur à vider son chevalet remporte la manche. Si la
 pioche s'épuise et que plus personne ne peut jouer, c'est le chevalet le plus léger qui gagne.
 Chaque perdant compte en négatif les points qui lui restent (30 pour un joker), le gagnant marque
-la somme de ces pénalités. Les scores se cumulent de manche en manche.
+la somme de ces pénalités. **Une partie se joue en trois manches**, scores cumulés : le
+classement final tombe à la dernière.
 
-## Les joueurs virtuels et le niveau
+## Expérience, niveau et joueurs virtuels
 
-La difficulté n'est pas un choix mais une progression : le joueur commence au niveau 1 et monte
-d'un cran à chaque manche gagnée, jusqu'au niveau 10. La force des adversaires suit ce niveau —
-elle ne repose pas sur un handicap artificiel mais sur l'étendue des coups envisagés :
+La difficulté n'est pas un choix mais une progression. À la fin de chaque partie, le joueur
+gagne de l'expérience selon ce qu'il y a accompli :
+
+| Source | Expérience |
+|---|---|
+| Chaque tuile posée pendant la partie | +1 XP |
+| Chaque manche gagnée | +15 XP |
+| Manche gagnée en criant Rummikub | +5 XP de plus |
+| Position au classement final | 1ᵉʳ +50, 2ᵉ +25, 3ᵉ +10, 4ᵉ +5 |
+
+L'expérience cumulée détermine le niveau, de 1 à 10 ; l'écart entre deux niveaux croît
+(100 XP, puis 200, puis 300…), les premiers tombent donc vite et les derniers se méritent. La
+force des adversaires suit ce niveau — elle ne repose pas sur un handicap artificiel mais sur
+l'étendue des coups envisagés :
 
 | Niveaux | Coups envisagés | Jokers | Recherche |
 |---|---|---|---|
@@ -53,9 +65,10 @@ elle ne repose pas sur un handicap artificiel mais sur l'étendue des coups envi
 | 3 – 6 | Complète en plus les combinaisons déjà posées | De mieux en mieux ménagés | ≈ 5 000 – 20 000 nœuds |
 | 7 – 10 | Refond la table entière pour caser un maximum de tuiles | Préservés | ≈ 30 000 – 120 000 nœuds |
 
-Entre deux paliers, les moyens de recherche du solveur croissent continûment. La progression est
-enregistrée à part de la partie en cours : commencer une nouvelle partie ne remet pas le niveau
-à zéro.
+Entre deux paliers, les moyens de recherche du solveur croissent continûment. L'expérience est
+enregistrée à part de la partie en cours : commencer une nouvelle partie ne remet rien à zéro,
+et les progressions de l'ancienne version (un niveau sans expérience) sont converties sans
+perte.
 
 Le moteur de décision est un solveur de partitionnement (`web/js/solver.js`) : il raisonne sur
 des compteurs de tuiles plutôt que sur des tuiles individuelles, explore en profondeur avec
@@ -69,11 +82,12 @@ descendues.
 
 ```
 cd web
-node --test tests/engine.test.js
+node --test tests/*.test.js
 ```
 
-51 cas couvrent les combinaisons, la légalité d'un tour, le solveur, et des manches entières
-jouées par les joueurs virtuels en contrôlant chaque coup et la conservation des 106 tuiles.
+58 cas couvrent les combinaisons, la légalité d'un tour, le solveur, la progression
+d'expérience, et des manches entières jouées par les joueurs virtuels en contrôlant chaque coup
+et la conservation des 106 tuiles.
 
 ## Limites connues
 

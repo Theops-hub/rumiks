@@ -3,7 +3,13 @@
 // Ce module ne touche pas au DOM. Il expose un état et des actions, et prévient l'interface à
 // chaque changement — la même séparation que le ViewModel de la version Android.
 
-import { MAX_LEVEL, chooseMove } from './ai.js';
+import { chooseMove } from './ai.js';
+import {
+  MANCHES_PER_GAME,
+  computeGameXp,
+  levelForXp,
+  normalizeProgress,
+} from './progression.js';
 import {
   HUMAN_INDEX,
   ROUND_END_BLOCKED,
@@ -40,16 +46,27 @@ const nextPaint = () => new Promise((resolve) => {
   requestAnimationFrame(() => requestAnimationFrame(resolve));
 });
 
+/** Ce qui se comptabilise au fil d'une partie, remis à zéro quand une nouvelle commence. */
+const freshPartie = () => ({ manche: 1, tilesLaid: 0, manchesWon: 0, rummikubs: 0 });
+
 export function createGame({ onChange, onFeedback }) {
   const settings = loadSettings();
   const saved = loadGame();
+  const progress = normalizeProgress(loadProgress());
 
   let state = {
     screen: 'home',
-    /** Niveau du joueur : il monte d'un cran par manche gagnée et règle la force des adversaires. */
-    level: Math.min(loadProgress().level, MAX_LEVEL),
-    /** Vrai quand la manche qui vient de s'achever a fait monter le joueur d'un niveau. */
+    /** Expérience cumulée du joueur ; le niveau en découle et règle la force des adversaires. */
+    xp: progress.xp,
+    level: levelForXp(progress.xp),
+    /** Vrai quand la partie qui vient de s'achever a fait monter le joueur de niveau. */
     leveledUp: false,
+    /** Vrai quand la dernière manche de la partie est jouée : le bilan affiche le classement. */
+    gameOver: false,
+    /** Détail de l'expérience gagnée à la fin de la dernière partie, pour le bilan. */
+    xpGain: null,
+    /** Avancement de la partie en cours : manche, tuiles posées, manches gagnées, Rummikubs. */
+    partie: saved?.partie ?? freshPartie(),
     opponentCount: saved?.opponentCount ?? 2,
     game: null,
     workBoard: [],
@@ -163,6 +180,10 @@ export function createGame({ onChange, onFeedback }) {
       opponentCount: state.opponentCount,
       game: state.game,
       log: state.log,
+      partie: state.partie,
+      gameOver: state.gameOver,
+      xpGain: state.xpGain,
+      leveledUp: state.leveledUp,
     });
   }
 
@@ -192,11 +213,21 @@ export function createGame({ onChange, onFeedback }) {
   }
 
   function startGame() {
+    update({ partie: freshPartie(), gameOver: false, leveledUp: false, xpGain: null });
     beginRound([]);
   }
 
+  /**
+   * Enchaîne après un bilan : la manche suivante de la même partie, scores conservés, ou une
+   * nouvelle partie repartant de zéro si le classement final vient de tomber.
+   */
   function nextRound() {
-    beginRound(state.game ? state.game.players.map((p) => p.score) : []);
+    if (state.game === null || state.gameOver) {
+      startGame();
+      return;
+    }
+    update({ partie: { ...state.partie, manche: state.partie.manche + 1 } });
+    beginRound(state.game.players.map((p) => p.score));
   }
 
   /** Quitter la partie la laisse en suspens : elle reste reprenable depuis l'accueil. */
@@ -236,6 +267,12 @@ export function createGame({ onChange, onFeedback }) {
       log: restored.log?.length ? restored.log : ['Partie reprise.'],
       aiThinking: false,
       recentTileIds: new Set(),
+      partie: restored.partie ?? freshPartie(),
+      gameOver: restored.gameOver ?? false,
+      xpGain: restored.xpGain ?? null,
+      leveledUp: restored.leveledUp ?? false,
+      // Une manche achevée retrouve son bilan : sans lui, impossible d'enchaîner.
+      showRoundEnd: isRoundOver(game),
     });
     if (!isRoundOver(game) && game.currentPlayerIndex !== HUMAN_INDEX) runAiTurns();
   }
@@ -448,6 +485,8 @@ export function createGame({ onChange, onFeedback }) {
     }
     emit('commit');
     const laid = result.tilesPlayed.length;
+    // Chaque tuile posée nourrit l'expérience qui sera créditée à la fin de la partie.
+    update({ partie: { ...state.partie, tilesLaid: state.partie.tilesLaid + laid } });
     applyNewState(result.state, `Vous posez ${laid} tuile${laid > 1 ? 's' : ''}.`);
   }
 
@@ -472,21 +511,37 @@ export function createGame({ onChange, onFeedback }) {
       ? `Rummikub ! ${winner} a posé sa dernière tuile.`
       : `Pioche épuisée : ${winner} a le chevalet le plus léger.`;
 
-    // Une manche gagnée fait monter d'un niveau : les adversaires de la suivante seront plus
-    // forts. La progression survit aux parties, elle est donc enregistrée à part.
-    const leveledUp = game.winnerIndex === HUMAN_INDEX && state.level < MAX_LEVEL;
-    const level = leveledUp ? state.level + 1 : state.level;
-    if (leveledUp) saveProgress({ level });
+    const humanWon = game.winnerIndex === HUMAN_INDEX;
+    const partie = {
+      ...state.partie,
+      manchesWon: state.partie.manchesWon + (humanWon ? 1 : 0),
+      rummikubs: state.partie.rummikubs
+        + (humanWon && game.endReason === ROUND_END_RUMMIKUB ? 1 : 0),
+    };
 
     const log = [...state.log, reason];
-    if (leveledUp) log.push(`Vous passez au niveau ${level}.`);
-    update({
-      log: log.slice(-30),
-      aiThinking: false,
-      showRoundEnd: true,
-      level,
-      leveledUp,
-    });
+    let patch = { partie, aiThinking: false, showRoundEnd: true };
+
+    if (partie.manche >= MANCHES_PER_GAME) {
+      // Dernière manche : le classement final tombe, et avec lui l'expérience de la partie.
+      // Le niveau découle de l'expérience cumulée, enregistrée à part de la sauvegarde.
+      const humanScore = game.players[HUMAN_INDEX].score;
+      const rank = 1 + game.players
+        .filter((p, index) => index !== HUMAN_INDEX && p.score > humanScore).length;
+      const xpGain = { ...computeGameXp({ ...partie, rank }), rank };
+      const xp = state.xp + xpGain.total;
+      const level = levelForXp(xp);
+      const leveledUp = level > state.level;
+      saveProgress({ xp });
+
+      log.push(`Fin de partie : vous gagnez ${xpGain.total} points d'expérience.`);
+      if (leveledUp) log.push(`Vous passez au niveau ${level}.`);
+      patch = { ...patch, xp, level, leveledUp, gameOver: true, xpGain };
+    } else {
+      patch = { ...patch, gameOver: false, leveledUp: false, xpGain: null };
+    }
+
+    update({ ...patch, log: log.slice(-30) });
     emit('roundEnd');
     persist();
   }

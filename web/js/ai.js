@@ -6,11 +6,11 @@
 // Elle suit le niveau du joueur, qui monte d'un cran à chaque manche gagnée.
 
 import { newMeld } from './engine.js';
+import { MAX_LEVEL } from './progression.js';
 import { INITIAL_MELD_POINTS, analyseMeld } from './rules.js';
 import { createSolver, materialize, solutionPoints } from './solver.js';
 
-/** Au-delà, la difficulté ne progresse plus : c'est le jeu le plus fort que le solveur offre. */
-export const MAX_LEVEL = 10;
+export { MAX_LEVEL };
 
 /** Niveau à partir duquel les adversaires complètent les combinaisons déjà posées. */
 export const EXTENDS_FROM_LEVEL = 3;
