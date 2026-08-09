@@ -589,15 +589,28 @@ body {
   border: 2px solid var(--alert);
 }
 
-/* Poignée de déplacement : on attrape toute la combinaison pour réorganiser le tapis. */
+/* Tout le cadre d'une combinaison est une prise : on l'attrape (poignée, bordure, interstices)
+   pour déplacer la série entière et organiser le tapis. Le glissement au doigt exige de retirer
+   le défilement au navigateur ; les tuiles le neutralisaient déjà, le tapis se fait défiler
+   depuis le feutre. */
+.meld {
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Poignée de déplacement : la prise évidente, taillée pour le doigt. */
 .meld-handle {
   flex: 0 0 auto;
   align-self: stretch;
   display: flex;
   align-items: center;
-  padding: 0 3px;
-  color: rgba(224, 178, 82, 0.55);
-  font-size: 0.85rem;
+  justify-content: center;
+  min-width: 28px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: rgba(224, 178, 82, 0.14);
+  color: rgba(224, 178, 82, 0.8);
+  font-size: 1.05rem;
   line-height: 1;
   cursor: grab;
   touch-action: none;
