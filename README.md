@@ -37,11 +37,10 @@ depuis son chevalet — jamais une tuile prise sur la table —, la tuile qu'il 
 revient alors dans la main du joueur, avec l'obligation d'être rejoué avant la fin du tour. Plus
 généralement, aucune autre tuile posée ne peut être reprise en main.
 
-**Fin de manche et décompte.** Le premier joueur à vider son chevalet remporte la manche. Si la
+**Fin de partie et décompte.** Le premier joueur à vider son chevalet remporte la partie. Si la
 pioche s'épuise et que plus personne ne peut jouer, c'est le chevalet le plus léger qui gagne.
 Chaque perdant compte en négatif les points qui lui restent (30 pour un joker), le gagnant marque
-la somme de ces pénalités. **Une partie se joue en trois manches**, scores cumulés : le
-classement final tombe à la dernière.
+la somme de ces pénalités : c'est le classement de la partie.
 
 ## Expérience, niveau et joueurs virtuels
 
@@ -51,9 +50,8 @@ gagne de l'expérience selon ce qu'il y a accompli :
 | Source | Expérience |
 |---|---|
 | Chaque tuile posée pendant la partie | +1 XP |
-| Chaque manche gagnée | +15 XP |
-| Manche gagnée en criant Rummikub | +5 XP de plus |
-| Position au classement final | 1ᵉʳ +50, 2ᵉ +25, 3ᵉ +10, 4ᵉ +5 |
+| Partie gagnée en criant Rummikub | +10 XP |
+| Position au classement final | 1ᵉʳ +40, 2ᵉ +20, 3ᵉ +10, 4ᵉ +5 |
 
 L'expérience cumulée détermine le niveau, de 1 à 10 ; l'écart entre deux niveaux croît
 (100 XP, puis 200, puis 300…), les premiers tombent donc vite et les derniers se méritent. La
@@ -86,8 +84,8 @@ cd web
 node --test tests/*.test.js
 ```
 
-58 cas couvrent les combinaisons, la légalité d'un tour, le solveur, la progression
-d'expérience, et des manches entières jouées par les joueurs virtuels en contrôlant chaque coup
+60 cas couvrent les combinaisons, la légalité d'un tour, le solveur, la progression
+d'expérience, et des parties entières jouées par les joueurs virtuels en contrôlant chaque coup
 et la conservation des 106 tuiles.
 
 ## Limites connues
