@@ -5,6 +5,7 @@
 
 const GAME_KEY = 'rumiks.partie';
 const SETTINGS_KEY = 'rumiks.reglages';
+const PROGRESS_KEY = 'rumiks.progression';
 
 /** Version du format : une sauvegarde d'une autre version est écartée sans faire d'histoires. */
 const SAVE_VERSION = 1;
@@ -41,6 +42,29 @@ export function clearGame() {
     localStorage.removeItem(GAME_KEY);
   } catch (error) {
     console.warn('Effacement impossible.', error);
+  }
+}
+
+/**
+ * Progression du joueur : son niveau, qui survit aux parties. Elle est volontairement séparée
+ * de la sauvegarde de partie : commencer une nouvelle partie n'y touche pas.
+ */
+export function loadProgress() {
+  try {
+    const raw = localStorage.getItem(PROGRESS_KEY);
+    if (!raw) return { level: 1 };
+    const level = Number(JSON.parse(raw).level);
+    return { level: Number.isFinite(level) ? Math.max(Math.round(level), 1) : 1 };
+  } catch {
+    return { level: 1 };
+  }
+}
+
+export function saveProgress(progress) {
+  try {
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+  } catch (error) {
+    console.warn('Progression non enregistrée.', error);
   }
 }
 

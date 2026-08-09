@@ -1,13 +1,44 @@
 // Joueurs virtuels.
 //
-// Les trois niveaux ne diffèrent pas par un handicap artificiel mais par l'étendue des coups
-// qu'ils envisagent : un débutant ne voit que les combinaisons qu'il peut former seul, un
-// joueur moyen sait aussi compléter ce qui est déjà posé, un joueur fort refond la table.
+// La force des adversaires ne repose pas sur un handicap artificiel mais sur l'étendue des
+// coups qu'ils envisagent : un débutant ne voit que les combinaisons qu'il peut former seul,
+// un joueur moyen sait aussi compléter ce qui est déjà posé, un joueur fort refond la table.
+// Elle suit le niveau du joueur, qui monte d'un cran à chaque manche gagnée.
 
 import { newMeld } from './engine.js';
 import { INITIAL_MELD_POINTS, analyseMeld } from './rules.js';
 import { createSolver, materialize, solutionPoints } from './solver.js';
 
+/** Au-delà, la difficulté ne progresse plus : c'est le jeu le plus fort que le solveur offre. */
+export const MAX_LEVEL = 10;
+
+/** Niveau à partir duquel les adversaires complètent les combinaisons déjà posées. */
+export const EXTENDS_FROM_LEVEL = 3;
+
+/** Niveau à partir duquel les adversaires refondent toute la table. */
+export const REARRANGES_FROM_LEVEL = 7;
+
+/**
+ * Profil de jeu des adversaires pour un niveau donné. Les moyens de recherche croissent
+ * continûment du niveau 1 (débutant qui gaspille ses jokers) au niveau maximal (l'ancien mode
+ * « difficile ») ; les capacités qualitatives s'ouvrent par paliers.
+ */
+export function profileForLevel(level) {
+  const clamped = Math.min(Math.max(Math.round(level), 1), MAX_LEVEL);
+  const t = (clamped - 1) / (MAX_LEVEL - 1);
+  return {
+    key: `niveau-${clamped}`,
+    level: clamped,
+    // Progression géométrique : chaque niveau pèse le même facteur, du débutant au maximum.
+    nodeBudget: Math.round(2000 * (120000 / 2000) ** t),
+    timeLimitMs: Math.round(200 + (1400 - 200) * t),
+    jokerPenalty: Math.round(140 * t),
+    extendsExistingMelds: clamped >= EXTENDS_FROM_LEVEL,
+    rearrangesBoard: clamped >= REARRANGES_FROM_LEVEL,
+  };
+}
+
+/** Anciens préréglages nommés : les sauvegardes d'avant les niveaux y font encore référence. */
 export const DIFFICULTIES = {
   easy: {
     key: 'easy',
@@ -157,9 +188,11 @@ function incrementalMove(state, player, profile) {
   return { type: 'play', board: finalBoard, rack: finalRack };
 }
 
-/** Décide du coup d'un joueur virtuel. */
-export function chooseMove(state, difficultyKey) {
-  const profile = DIFFICULTIES[difficultyKey] ?? DIFFICULTIES.medium;
+/** Décide du coup d'un joueur virtuel. `difficulty` est un niveau, ou un ancien nom de préréglage. */
+export function chooseMove(state, difficulty) {
+  const profile = typeof difficulty === 'number'
+    ? profileForLevel(difficulty)
+    : DIFFICULTIES[difficulty] ?? DIFFICULTIES.medium;
   const player = state.players[state.currentPlayerIndex];
   if (!player.hasOpened) return openingMove(state, player, profile);
   if (profile.rearrangesBoard) {
