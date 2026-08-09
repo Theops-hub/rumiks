@@ -128,11 +128,12 @@ function sameIds(a, b) {
 }
 
 /**
- * Vérifie qu'un tour est conforme aux règles officielles.
+ * Vérifie qu'un tour est conforme aux règles de la maison.
  *
  * Sont contrôlés, dans l'ordre : la conservation des tuiles, la validité de toutes les
- * combinaisons laissées sur la table, la pose d'au moins une tuile du chevalet, les contraintes
- * propres à la pose initiale, puis l'interdiction de reprendre en main une tuile déjà posée.
+ * combinaisons laissées sur la table, la pose d'au moins une tuile du chevalet, le blocage des
+ * combinaisons contenant un joker, les contraintes propres à la pose initiale, puis
+ * l'interdiction de reprendre en main une tuile déjà posée.
  */
 export function validateTurn(before, after, hasOpened) {
   if (!sameIds(tileIds(before.board, before.rack), tileIds(after.board, after.rack))) {
@@ -158,31 +159,36 @@ export function validateTurn(before, after, hasOpened) {
     return { ok: false, reason: 'Il faut poser au moins une tuile de son chevalet.' };
   }
 
+  // Une combinaison qui contient un joker est bloquée : ses tuiles réelles doivent rester
+  // ensemble. On peut la compléter, ou remplacer le joker (qui devra être rejoué), mais jamais
+  // en disperser les tuiles.
+  for (const meld of before.board) {
+    if (!meld.tiles.some((t) => t.isJoker)) continue;
+    const realIds = meld.tiles.filter((t) => !t.isJoker).map((t) => t.id);
+    const together = after.board.some((m) => {
+      const ids = new Set(m.tiles.map((t) => t.id));
+      return realIds.every((id) => ids.has(id));
+    });
+    if (!together) {
+      return {
+        ok: false,
+        reason: 'Une combinaison qui contient un joker est bloquée : on peut la compléter ou remplacer le joker, pas en reprendre les tuiles.',
+      };
+    }
+  }
+
   let openingPoints = 0;
   if (!hasOpened) {
-    const afterSets = after.board.map((meld) => meld.tiles.map((t) => t.id).sort((a, b) => a - b).join(','));
-    const remaining = afterSets.slice();
-    for (const meld of before.board) {
-      const key = meld.tiles.map((t) => t.id).sort((a, b) => a - b).join(',');
-      const at = remaining.indexOf(key);
-      if (at === -1) {
-        return {
-          ok: false,
-          reason: `Tant que la pose initiale de ${INITIAL_MELD_POINTS} points n'est pas faite, les combinaisons déjà sur la table ne peuvent pas être modifiées.`,
-        };
-      }
-      remaining.splice(at, 1);
-    }
-    // Ce qui reste ne peut venir que du chevalet : la table était intacte et le total des
-    // tuiles est conservé.
-    const fresh = new Set(remaining);
+    // La pose initiale se compte sur les combinaisons formées uniquement de tuiles du chevalet,
+    // jokers exclus. Une fois les points atteints, le reste du tour est libre : on peut
+    // enchaîner d'autres poses et compléter la table dans la foulée.
     openingPoints = after.board
-      .filter((meld) => fresh.has(meld.tiles.map((t) => t.id).sort((a, b) => a - b).join(',')))
+      .filter((meld) => meld.tiles.every((t) => rackBeforeIds.has(t.id) && !t.isJoker))
       .reduce((sum, meld) => sum + (analyseMeld(meld.tiles)?.points ?? 0), 0);
     if (openingPoints < INITIAL_MELD_POINTS) {
       return {
         ok: false,
-        reason: `La pose initiale doit totaliser au moins ${INITIAL_MELD_POINTS} points (actuellement ${openingPoints}).`,
+        reason: `La pose initiale doit totaliser au moins ${INITIAL_MELD_POINTS} points, en combinaisons formées de vos seules tuiles, sans joker (actuellement ${openingPoints}).`,
       };
     }
   }
@@ -198,9 +204,6 @@ export function validateTurn(before, after, hasOpened) {
   // combinaisons est permise.
   if (tilesOnBoardBefore.some((t) => rackAfterIds.has(t.id))) {
     return { ok: false, reason: 'Une tuile déjà posée ne peut pas revenir dans un chevalet.' };
-  }
-  if (after.rack.some((t) => t.isJoker && !rackBeforeIds.has(t.id))) {
-    return { ok: false, reason: 'Un joker ne peut pas rejoindre le chevalet.' };
   }
 
   return { ok: true, tilesPlayed, openingPoints };
@@ -293,7 +296,7 @@ export function commitTurn(state, newBoard, newRack) {
   next = updated.rack.length === 0
     ? finishWithWinner(next, state.currentPlayerIndex, ROUND_END_RUMMIKUB)
     : advanceTurn(next);
-  return { ok: true, state: next, tilesPlayed: check.tilesPlayed.length };
+  return { ok: true, state: next, tilesPlayed: check.tilesPlayed };
 }
 
 /** Total des tuiles en jeu : sert de garde-fou contre toute perte de tuile. */

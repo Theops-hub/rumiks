@@ -52,11 +52,12 @@ function solverFor(profile, tileWeight, pointWeight) {
 }
 
 /**
- * Pose initiale : au moins 30 points, formés exclusivement avec les tuiles du chevalet, sans
- * toucher à ce qui est déjà sur la table.
+ * Pose initiale : au moins 30 points, formés exclusivement avec les tuiles du chevalet — et
+ * sans joker, qui n'a pas le droit de servir à l'ouverture.
  */
 function openingMove(state, player, profile) {
-  const rack = player.rack;
+  const rack = player.rack.filter((t) => !t.isJoker);
+  const jokers = player.rack.filter((t) => t.isJoker);
   const byPoints = solverFor(profile, 1, 100).solve(rack, []);
   if (byPoints === null || solutionPoints(byPoints) < INITIAL_MELD_POINTS) return { type: 'draw' };
 
@@ -69,25 +70,34 @@ function openingMove(state, player, profile) {
 
   const laid = materialize(chosen.melds, [], rack, (tiles) => newMeld(tiles));
   if (laid === null || laid.melds.length === 0) return { type: 'draw' };
-  return { type: 'play', board: [...state.board, ...laid.melds], rack: laid.remainingRack };
+  return {
+    type: 'play',
+    board: [...state.board, ...laid.melds],
+    rack: [...laid.remainingRack, ...jokers],
+  };
 }
 
 /**
  * Refonte complète : toutes les tuiles de la table doivent se retrouver dans une combinaison
- * valide, et on cherche l'agencement qui accueille le plus de tuiles du chevalet.
+ * valide, et on cherche l'agencement qui accueille le plus de tuiles du chevalet. Les
+ * combinaisons contenant un joker sont bloquées : elles restent en place, tout au plus
+ * complétées, et seul le reste de la table est refondu.
  */
 function rearrangeWholeBoard(state, player, profile) {
-  const boardTiles = state.board.flatMap((meld) => meld.tiles);
-  if (boardTiles.length === 0) return null;
+  if (state.board.length === 0) return null;
+  const isFrozen = (meld) => meld.tiles.some((t) => t.isJoker);
+  const extended = extendExistingMelds(state.board.filter(isFrozen), player.rack);
+  const boardTiles = state.board.filter((m) => !isFrozen(m)).flatMap((meld) => meld.tiles);
 
-  const solution = solverFor(profile, 100, 1).solve([...boardTiles, ...player.rack], boardTiles);
+  const solution = solverFor(profile, 100, 1)
+    .solve([...boardTiles, ...extended.remaining], boardTiles);
   if (solution === null) return null;
-  const laid = materialize(solution.melds, boardTiles, player.rack, (tiles) => newMeld(tiles));
+  const laid = materialize(solution.melds, boardTiles, extended.remaining, (tiles) => newMeld(tiles));
   if (laid === null) return null;
 
   // Réorganiser sans rien descendre de sa main est interdit par les règles.
   if (player.rack.length - laid.remainingRack.length <= 0) return null;
-  return { type: 'play', board: laid.melds, rack: laid.remainingRack };
+  return { type: 'play', board: [...extended.melds, ...laid.melds], rack: laid.remainingRack };
 }
 
 /**

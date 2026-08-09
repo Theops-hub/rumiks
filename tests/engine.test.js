@@ -1,5 +1,5 @@
 // Suite de tests du moteur web, portée depuis celle de la version Android.
-// Exécution : node --test web/tests/
+// Exécution : node --test web/tests/engine.test.js
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -163,7 +163,20 @@ test('la pose initiale peut cumuler plusieurs combinaisons', () => {
   assert.equal(check.openingPoints, 33);
 });
 
-test('avant sa pose initiale un joueur ne peut pas completer la table', () => {
+test('sans ses 30 points un joueur ne peut pas completer la table', () => {
+  const existing = [blue(4), blue(5), blue(6)];
+  const addition = blue(7);
+  const group = [red(5), black(5), orange(5)];
+  const check = validateTurn(
+    snapshot([meld(existing)], [addition, ...group]),
+    snapshot([meld([...existing, addition]), meld(group)], []),
+    false,
+  );
+  assert.equal(check.ok, false);
+  assert.match(check.reason, /pose initiale/);
+});
+
+test('les 30 points atteints, le tour d ouverture se poursuit librement', () => {
   const existing = [blue(4), blue(5), blue(6)];
   const addition = blue(7);
   const group = [red(11), black(11), orange(11)];
@@ -172,8 +185,44 @@ test('avant sa pose initiale un joueur ne peut pas completer la table', () => {
     snapshot([meld([...existing, addition]), meld(group)], []),
     false,
   );
+  assert.equal(check.ok, true);
+  assert.equal(check.openingPoints, 33);
+});
+
+test('un joker ne compte pas dans la pose initiale', () => {
+  const [a, b, j, spare] = [red(12), blue(12), joker(), orange(2)];
+  const check = validateTurn(
+    snapshot([], [a, b, j, spare]),
+    snapshot([meld(a, b, j)], [spare]),
+    false,
+  );
   assert.equal(check.ok, false);
-  assert.match(check.reason, /pose initiale/);
+  assert.match(check.reason, /joker/);
+});
+
+test('une combinaison avec joker est bloquee : ses tuiles ne se dispersent pas', () => {
+  const j = joker();
+  const [b5, b7] = [blue(5), blue(7)];
+  const [b3, b4, b8, b9] = [blue(3), blue(4), blue(8), blue(9)];
+  const [r12, n12] = [red(12), black(12)];
+  const check = validateTurn(
+    snapshot([meld(b5, j, b7)], [b3, b4, b8, b9, r12, n12]),
+    snapshot([meld(b3, b4, b5), meld(b7, b8, b9), meld(r12, n12, j)], []),
+    true,
+  );
+  assert.equal(check.ok, false);
+  assert.match(check.reason, /joker/);
+});
+
+test('completer une combinaison avec joker reste permis', () => {
+  const j = joker();
+  const [b5, b7, b8] = [blue(5), blue(7), blue(8)];
+  const check = validateTurn(
+    snapshot([meld(b5, j, b7)], [b8]),
+    snapshot([meld(b5, j, b7, b8)], []),
+    true,
+  );
+  assert.equal(check.ok, true);
 });
 
 test('un tour sans aucune tuile posee est refuse', () => {
