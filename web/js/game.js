@@ -75,6 +75,14 @@ export function createGame({ onChange, onFeedback }) {
     recentTileIds: new Set(),
     /** Tuile qui vient d'être piochée : brièvement mise en avant dans le chevalet. */
     drawnTileId: null,
+    /**
+     * Positions choisies des combinaisons sur le tapis, par identifiant : `x` en fraction de la
+     * largeur, `y` en pixels. Une combinaison absente d'ici se range d'elle-même dans un espace
+     * libre au rendu.
+     */
+    layout: saved?.layout ?? {},
+    /** Résumé des coups des adversaires, affiché en bandeau sur le tapis quelques secondes. */
+    aiBanner: null,
   };
 
   /** Identifiants négatifs pour les combinaisons créées à la main : aucune collision possible. */
@@ -178,6 +186,7 @@ export function createGame({ onChange, onFeedback }) {
       partie: state.partie,
       xpGain: state.xpGain,
       leveledUp: state.leveledUp,
+      layout: state.layout,
     });
   }
 
@@ -201,6 +210,8 @@ export function createGame({ onChange, onFeedback }) {
       canResume: true,
       aiThinking: false,
       recentTileIds: new Set(),
+      layout: {},
+      aiBanner: null,
     });
     persist();
     if (game.currentPlayerIndex !== HUMAN_INDEX) runAiTurns();
@@ -229,6 +240,7 @@ export function createGame({ onChange, onFeedback }) {
       aiThinking: false,
       canResume: loadGame() !== null,
       recentTileIds: new Set(),
+      aiBanner: null,
     });
   }
 
@@ -242,8 +254,18 @@ export function createGame({ onChange, onFeedback }) {
     const game = restored.game;
     reserveMeldIds(game);
     // Répare les sauvegardes des versions où un identifiant provisoire survivait à la
-    // validation : en double, une pose serait insérée dans deux combinaisons à la fois.
-    game.board = game.board.map((m) => (m.id < 0 ? newMeld(m.tiles) : m));
+    // validation : en double, une pose serait insérée dans deux combinaisons à la fois. Les
+    // positions choisies sur le tapis suivent le nouvel identifiant.
+    const layout = { ...(restored.layout ?? {}) };
+    game.board = game.board.map((m) => {
+      if (m.id >= 0) return m;
+      const fresh = newMeld(m.tiles);
+      if (layout[m.id] !== undefined) {
+        layout[fresh.id] = layout[m.id];
+        delete layout[m.id];
+      }
+      return fresh;
+    });
     history = [];
     update({
       screen: 'game',
@@ -261,6 +283,8 @@ export function createGame({ onChange, onFeedback }) {
         : freshPartie(),
       xpGain: restored.xpGain ?? null,
       leveledUp: restored.leveledUp ?? false,
+      layout,
+      aiBanner: null,
       // Une partie achevée retrouve son bilan : sans lui, impossible d'enchaîner.
       showRoundEnd: isRoundOver(game),
     });
@@ -403,9 +427,15 @@ export function createGame({ onChange, onFeedback }) {
       });
     }
 
+    let layout = state.layout;
     if (target.kind === 'new') {
       board = board.filter((m) => m.tiles.length > 0);
-      board.push(newMeld(reorder(moved), nextTempMeldId--));
+      const fresh = newMeld(reorder(moved), nextTempMeldId--);
+      board.push(fresh);
+      // La combinaison naît à l'endroit du dépôt ; sans position, le rendu lui trouve une place.
+      if (target.position !== undefined) {
+        layout = { ...layout, [fresh.id]: target.position };
+      }
     } else if (target.kind === 'meld') {
       const ejected = [];
       // L'insertion vise une combinaison précise, jamais « toutes celles de cet identifiant » :
@@ -468,37 +498,43 @@ export function createGame({ onChange, onFeedback }) {
 
     history.push({ board: state.workBoard, rack: state.workRack });
     if (history.length > 100) history.shift();
-    update({ workBoard: board, workRack: rack, selection: new Set(), message: null });
+    update({ workBoard: board, workRack: rack, selection: new Set(), message: null, layout });
     emit(target.kind === 'rack' ? 'select' : 'place');
     return true;
   }
 
   /**
-   * Déplace une combinaison entière à une autre place du tapis. `index` est la position visée
-   * parmi les autres combinaisons, celle déplacée exclue. Purement visuel : l'ordre est reporté
-   * sur la table validée pour survivre à la pioche et aux tours suivants, et le geste ne compte
-   * ni comme un coup ni dans l'annulation.
+   * Pose une combinaison entière à l'endroit choisi du tapis : `x` en fraction de la largeur,
+   * `y` en pixels. Purement visuel — le geste ne compte ni comme un coup ni dans l'annulation —
+   * et la position, enregistrée, survit à la pioche et aux tours suivants.
    */
-  function moveMeld(meldId, index) {
+  function placeMeld(meldId, position) {
     if (!isHumanTurn()) return false;
-    const at = state.workBoard.findIndex((m) => m.id === meldId);
-    if (at === -1) return false;
-    const workBoard = state.workBoard.slice();
-    const [meld] = workBoard.splice(at, 1);
-    workBoard.splice(Math.max(0, Math.min(index, workBoard.length)), 0, meld);
-
-    const position = new Map(workBoard.map((m, i) => [m.id, i]));
-    const board = state.game.board.slice()
-      .sort((a, b) => (position.get(a.id) ?? Infinity) - (position.get(b.id) ?? Infinity));
-    update({
-      workBoard,
-      game: { ...state.game, board },
-      selection: new Set(),
-      message: null,
-    });
+    if (!state.workBoard.some((m) => m.id === meldId)) return false;
+    const layout = {
+      ...state.layout,
+      [meldId]: {
+        x: Math.min(Math.max(position.x, 0), 1),
+        y: Math.max(position.y, 0),
+      },
+    };
+    update({ layout, selection: new Set(), message: null });
     persist();
     emit('select');
     return true;
+  }
+
+  /**
+   * Enregistre les positions que le rendu vient de calculer pour les combinaisons encore sans
+   * place. Mise à jour silencieuse : l'écran les affiche déjà, notifier bouclerait le rendu.
+   */
+  function rememberLayout(positions) {
+    const entries = Object.entries(positions);
+    if (entries.length === 0) return;
+    const layout = { ...state.layout };
+    for (const [id, position] of entries) layout[id] = position;
+    state = { ...state, layout };
+    persist();
   }
 
   /** Vrai si les deux combinaisons n'en formeraient qu'une seule valide une fois réunies. */
@@ -523,7 +559,9 @@ export function createGame({ onChange, onFeedback }) {
     const board = state.workBoard
       .filter((m) => m.id !== sourceId)
       .map((m) => (m.id === targetId ? { ...m, tiles: reorder([...m.tiles, ...source.tiles]) } : m));
-    update({ workBoard: board, selection: new Set(), message: null });
+    const layout = { ...state.layout };
+    delete layout[sourceId];
+    update({ workBoard: board, selection: new Set(), message: null, layout });
     emit('place');
     return true;
   }
@@ -597,16 +635,33 @@ export function createGame({ onChange, onFeedback }) {
 
   function commitTurn() {
     if (!isHumanTurn()) return;
-    const result = engineCommit(state.game, state.workBoard, state.workRack);
+    // Les combinaisons provisoires reçoivent leur identifiant définitif avant validation, pour
+    // que leur position sur le tapis les suive.
+    const layout = { ...state.layout };
+    const board = state.workBoard.map((m) => {
+      if (m.id >= 0) return m;
+      const fresh = newMeld(m.tiles);
+      if (layout[m.id] !== undefined) {
+        layout[fresh.id] = layout[m.id];
+        delete layout[m.id];
+      }
+      return fresh;
+    });
+    const result = engineCommit(state.game, board, state.workRack);
     if (!result.ok) {
       update({ message: result.reason });
       emit('reject');
       return;
     }
     emit('commit');
+    // Les positions des combinaisons disparues ne servent plus.
+    const kept = new Set(result.state.board.map((m) => m.id));
+    for (const id of Object.keys(layout)) {
+      if (!kept.has(Number(id))) delete layout[id];
+    }
     const laid = result.tilesPlayed.length;
     // Chaque tuile posée nourrit l'expérience qui sera créditée à la fin de la partie.
-    update({ partie: { ...state.partie, tilesLaid: state.partie.tilesLaid + laid } });
+    update({ layout, partie: { ...state.partie, tilesLaid: state.partie.tilesLaid + laid } });
     applyNewState(result.state, `Vous posez ${laid} tuile${laid > 1 ? 's' : ''}.`);
   }
 
@@ -684,8 +739,12 @@ export function createGame({ onChange, onFeedback }) {
 
   // ------------------------------------------------------------ tours des joueurs virtuels
 
+  /** Durée d'affichage du bandeau récapitulant les coups des adversaires. */
+  const AI_BANNER_MS = 7000;
+
   async function runAiTurns() {
-    update({ aiThinking: true });
+    update({ aiThinking: true, aiBanner: null });
+    const recap = [];
     for (;;) {
       const game = state.game;
       if (game === null || isRoundOver(game) || game.currentPlayerIndex === HUMAN_INDEX) break;
@@ -719,6 +778,7 @@ export function createGame({ onChange, onFeedback }) {
       }
 
       history = [];
+      recap.push(line);
       update({
         game: next,
         workBoard: next.board,
@@ -733,7 +793,14 @@ export function createGame({ onChange, onFeedback }) {
         return;
       }
     }
-    update({ aiThinking: false, selection: new Set() });
+    // Un bandeau récapitule les coups adverses quelques secondes, le temps de les repérer.
+    const aiBanner = recap.length > 0 ? recap : null;
+    update({ aiThinking: false, selection: new Set(), aiBanner });
+    if (aiBanner !== null) {
+      setTimeout(() => {
+        if (state.aiBanner === aiBanner) update({ aiBanner: null });
+      }, AI_BANNER_MS);
+    }
   }
 
   // ------------------------------------------------------------ réglages
@@ -773,7 +840,8 @@ export function createGame({ onChange, onFeedback }) {
     toggleSelection,
     clearSelection,
     moveTiles,
-    moveMeld,
+    placeMeld,
+    rememberLayout,
     canMergeMelds,
     mergeMelds,
     placeSelection,

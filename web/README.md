@@ -30,14 +30,18 @@ s'insère à l'endroit visé —, d'une combinaison à l'autre pour remanier la 
 chevalet pour reprendre une tuile descendue par erreur. Une tuile posée avant le tour, elle,
 reste sur la table : les règles l'exigent, et le jeu le refuse avec un message.
 
-L'ordre à l'intérieur d'une combinaison est libre : les tuiles — joker compris — restent à la
-place où on les dépose, et dans une suite le joker vaut la place qu'il occupe, points compris.
-Une combinaison s'attrape entière, par sa poignée (⠿) ou son cadre, pour organiser le tapis à
-sa façon ; cet ordre survit aux tours suivants. Déposée sur une combinaison compatible, elle
-fusionne avec elle, numéros remis en ordre — la cible s'illumine quand la fusion est possible.
-À l'inverse, prélever un chiffre au milieu d'une longue suite la divise d'elle-même en deux
-moitiés valables. La tuile fraîchement piochée pulse en doré quelques instants, le temps de la
-repérer dans le chevalet retrié.
+Le tapis est à placement libre, comme une vraie table : chaque combinaison s'attrape entière —
+par sa poignée (⠿) ou son cadre — et reste exactement où on la pose ; ces positions survivent
+aux tours suivants, et les poses des adversaires se rangent d'elles-mêmes dans les espaces
+libres. L'ordre à l'intérieur d'une combinaison est tout aussi libre : les tuiles — joker
+compris — restent où on les dépose, et dans une suite le joker vaut la place qu'il occupe,
+points compris. Déposée sur une combinaison compatible, une série fusionne avec elle, numéros
+remis en ordre — la cible s'illumine quand la fusion est possible. À l'inverse, prélever un
+chiffre au milieu d'une longue suite la divise d'elle-même en deux moitiés valables.
+
+Après le tour des adversaires, un bandeau récapitule leurs coups quelques secondes au-dessus du
+tapis, et leurs tuiles fraîchement posées pulsent en doré jusqu'à votre prochaine action. La
+tuile que vous venez de piocher pulse de même dans le chevalet, le temps de la repérer.
 
 La tuile soulevée quitte réellement sa place et suit le doigt, légèrement remontée pour rester
 visible. Il n'est pas demandé de viser juste : dès que la tuile frôle une combinaison, celle-ci

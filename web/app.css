@@ -238,11 +238,17 @@ body {
   font-size: calc(var(--tile-h-board) * 0.42);
 }
 
-/* Tuiles posées par les adversaires depuis la dernière action du joueur : un halo doré les
-   signale, pour qu'on voie d'un coup d'œil ce qui a changé sur la table. */
+/* Tuiles posées par les adversaires depuis la dernière action du joueur : un halo doré pulsé
+   les signale, pour qu'on voie d'un coup d'œil ce qui a changé sur la table. */
 .tile.recent {
   border-color: var(--gold-bright);
   box-shadow: 0 0 0 2px rgba(243, 206, 124, 0.65), 0 3px 6px rgba(8, 23, 17, 0.55);
+  animation: recent-pulse 1.1s ease-in-out 6;
+}
+
+@keyframes recent-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(243, 206, 124, 0.65), 0 3px 6px rgba(8, 23, 17, 0.55); }
+  50% { box-shadow: 0 0 0 6px rgba(243, 206, 124, 0.5), 0 3px 6px rgba(8, 23, 17, 0.55); }
 }
 
 /* La tuile qui vient d'être piochée : quelques pulsations dorées le temps de la repérer dans
@@ -542,22 +548,63 @@ body {
 }
 
 .board {
+  position: relative;
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  display: flex;
-  flex-wrap: wrap;
-  align-content: flex-start;
-  gap: 0.6rem;
-  padding: 0.6rem;
+  display: block;
   -webkit-overflow-scrolling: touch;
+}
+
+/* Le placement est libre : chaque combinaison vit aux coordonnées choisies par le joueur, les
+   nouvelles se rangeant d'elles-mêmes dans les espaces libres. */
+.board .meld {
+  position: absolute;
+}
+
+/* Les enfants absolus n'étirent pas le tapis : la cale invisible lui donne sa hauteur. */
+.board-sizer {
+  width: 1px;
+  pointer-events: none;
 }
 
 /* Tant que rien n'est posé, la consigne se place au milieu du tapis plutôt qu'en haut. */
 .board.empty {
+  display: flex;
   align-content: center;
+  align-items: center;
   justify-content: center;
+  padding: 0.6rem;
+}
+
+/* Récapitulatif des coups adverses : il survole le tapis puis s'efface. */
+.ai-banner {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: min(92%, 30rem);
+  padding: 0.45rem 0.95rem;
+  border: 1px solid var(--gold);
+  border-radius: 11px;
+  background: rgba(8, 23, 17, 0.92);
+  color: var(--gold-bright);
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+  animation: banner-fade 7s ease forwards;
+}
+
+@keyframes banner-fade {
+  0% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
+  6%, 82% { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; }
 }
 
 .board-empty {
@@ -623,14 +670,6 @@ body {
   opacity: 0.35;
 }
 
-/* Repère d'insertion entre combinaisons : un liseré doré sur la voisine. */
-.meld.insert-before {
-  box-shadow: -6px 0 0 0 var(--gold-bright);
-}
-
-.meld.insert-after {
-  box-shadow: 6px 0 0 0 var(--gold-bright);
-}
 
 @keyframes meld-in {
   from { opacity: 0; transform: scale(0.9); }
@@ -657,6 +696,10 @@ body {
 .drop-btn:active { transform: scale(0.9); }
 
 .new-meld-zone {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 6;
   display: flex;
   align-items: center;
   padding: 0 1rem;
