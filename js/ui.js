@@ -253,12 +253,12 @@ export function createUi(game) {
   const BOARD_PAD = 10;
   const PACK_GAP = 12;
 
-  /** Vrai si deux rectangles se chevauchent, marge de respiration comprise. */
-  function overlaps(a, b) {
-    return a.left < b.right + PACK_GAP
-      && a.right > b.left - PACK_GAP
-      && a.top < b.bottom + PACK_GAP
-      && a.bottom > b.top - PACK_GAP;
+  /** Vrai si deux rectangles se chevauchent, à la marge donnée près. */
+  function overlaps(a, b, gap = PACK_GAP) {
+    return a.left < b.right + gap
+      && a.right > b.left - gap
+      && a.top < b.bottom + gap
+      && a.bottom > b.top - gap;
   }
 
   /** Premier emplacement libre pour un rectangle `w` × `h`, en balayant de haut en bas. */
@@ -282,13 +282,29 @@ export function createUi(game) {
     const width = Math.max(host.clientWidth - BOARD_PAD * 2, 60);
     const rects = [];
     const pending = [];
+    const fresh = {};
     for (const { row, meld } of rows) {
       const w = Math.min(row.offsetWidth, width);
       const h = row.offsetHeight;
       const pos = layout[meld.id];
       if (pos !== undefined) {
         const left = BOARD_PAD + Math.min(Math.max(pos.x, 0) * width, width - w);
-        const top = BOARD_PAD + Math.max(pos.y, 0);
+        let top = BOARD_PAD + Math.max(pos.y, 0);
+        // Les combinaisons ne se superposent jamais : celle qui arrive sur une autre se cale
+        // juste en dessous, et la position corrigée est retenue.
+        for (let scan = 0, guard = 0; scan < rects.length && guard < 60; ) {
+          const candidate = { left, top, right: left + w, bottom: top + h };
+          if (overlaps(candidate, rects[scan], 3)) {
+            top = rects[scan].bottom + PACK_GAP;
+            scan = 0;
+            guard += 1;
+          } else {
+            scan += 1;
+          }
+        }
+        if (top !== BOARD_PAD + Math.max(pos.y, 0)) {
+          fresh[meld.id] = { x: (left - BOARD_PAD) / width, y: top - BOARD_PAD };
+        }
         row.style.left = `${left}px`;
         row.style.top = `${top}px`;
         rects.push({ left, top, right: left + w, bottom: top + h });
@@ -297,7 +313,6 @@ export function createUi(game) {
       }
     }
 
-    const fresh = {};
     for (const item of pending) {
       const spot = findSpot(item.w, item.h, rects, width);
       item.row.style.left = `${spot.left}px`;
