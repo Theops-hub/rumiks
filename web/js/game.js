@@ -80,6 +80,8 @@ export function createGame({ onChange, onFeedback }) {
     hapticsEnabled: settings.hapticsEnabled,
     /** Tuiles posées par les adversaires depuis la dernière action du joueur : surlignées. */
     recentTileIds: new Set(),
+    /** Tuile qui vient d'être piochée : brièvement mise en avant dans le chevalet. */
+    drawnTileId: null,
   };
 
   /** Identifiants négatifs pour les combinaisons créées à la main : aucune collision possible. */
@@ -325,6 +327,16 @@ export function createGame({ onChange, onFeedback }) {
       committedMelds.flatMap((m) => m.tiles).filter((t) => t.isJoker).map((t) => t.id),
     );
 
+    // Réarrangement sur place : toutes les tuiles déplacées viennent déjà de la combinaison
+    // visée. C'est un geste purement visuel — choisir l'ordre des couleurs d'un groupe, la
+    // place du joker — qui ne compte ni comme un coup, ni dans l'annulation.
+    const targetMeld = target.kind === 'meld'
+      ? state.workBoard.find((m) => m.id === target.meldId)
+      : undefined;
+    const pureReorder = targetMeld !== undefined
+      && fromRack.length === 0
+      && fromBoard.every((t) => targetMeld.tiles.some((x) => x.id === t.id));
+
     // Une combinaison qui contient un joker est bloquée : ses tuiles réelles ne se déplacent
     // pas, on peut seulement la compléter ou reprendre le joker en le remplaçant.
     const frozenIds = new Set(
@@ -377,10 +389,11 @@ export function createGame({ onChange, onFeedback }) {
             ? m.tiles.length
             : Math.max(0, Math.min(target.index, m.tiles.length));
           let tiles = reorder([...m.tiles.slice(0, at), ...moved, ...m.tiles.slice(at)]);
-          // Un joker de la table rendu superflu par cet ajout est récupéré : il rejoint le
-          // chevalet, avec l'obligation d'être rejoué avant la fin du tour. Les jokers que le
-          // joueur vient lui-même de déposer restent où il les a mis.
-          for (;;) {
+          // Un joker de la table rendu superflu par un apport extérieur est récupéré : il
+          // rejoint le chevalet, avec l'obligation d'être rejoué avant la fin du tour. Un
+          // simple réarrangement interne, comme les jokers que le joueur vient lui-même de
+          // déposer, ne déloge rien.
+          while (!pureReorder) {
             const spare = tiles.find((x) => x.isJoker
               && committedJokers.has(x.id)
               && !ids.has(x.id)
@@ -402,10 +415,61 @@ export function createGame({ onChange, onFeedback }) {
       rack = [...rack.slice(0, at), ...moved, ...rack.slice(at)];
     }
 
+    if (pureReorder) {
+      // L'ordre choisi est reporté sur la table validée : il survit ainsi à la pioche et aux
+      // tours suivants, sans compter comme un coup ni passer par l'annulation.
+      const rearranged = board.find((m) => m.id === target.meldId);
+      const committedBoard = state.game.board.map((m) => (
+        m.id === target.meldId
+        && m.tiles.length === rearranged.tiles.length
+        && m.tiles.every((t) => rearranged.tiles.some((x) => x.id === t.id))
+          ? { ...m, tiles: rearranged.tiles }
+          : m
+      ));
+      update({
+        workBoard: board,
+        workRack: rack,
+        selection: new Set(),
+        message: null,
+        game: { ...state.game, board: committedBoard },
+      });
+      persist();
+      emit('select');
+      return true;
+    }
+
     history.push({ board: state.workBoard, rack: state.workRack });
     if (history.length > 100) history.shift();
     update({ workBoard: board, workRack: rack, selection: new Set(), message: null });
     emit(target.kind === 'rack' ? 'select' : 'place');
+    return true;
+  }
+
+  /**
+   * Déplace une combinaison entière à une autre place du tapis. `index` est la position visée
+   * parmi les autres combinaisons, celle déplacée exclue. Purement visuel : l'ordre est reporté
+   * sur la table validée pour survivre à la pioche et aux tours suivants, et le geste ne compte
+   * ni comme un coup ni dans l'annulation.
+   */
+  function moveMeld(meldId, index) {
+    if (!isHumanTurn()) return false;
+    const at = state.workBoard.findIndex((m) => m.id === meldId);
+    if (at === -1) return false;
+    const workBoard = state.workBoard.slice();
+    const [meld] = workBoard.splice(at, 1);
+    workBoard.splice(Math.max(0, Math.min(index, workBoard.length)), 0, meld);
+
+    const position = new Map(workBoard.map((m, i) => [m.id, i]));
+    const board = state.game.board.slice()
+      .sort((a, b) => (position.get(a.id) ?? Infinity) - (position.get(b.id) ?? Infinity));
+    update({
+      workBoard,
+      game: { ...state.game, board },
+      selection: new Set(),
+      message: null,
+    });
+    persist();
+    emit('select');
     return true;
   }
 
@@ -469,6 +533,7 @@ export function createGame({ onChange, onFeedback }) {
       log: [...state.log, logLine].slice(-30),
       // Le joueur vient d'agir : les poses adverses encore surlignées ne le sont plus.
       recentTileIds: new Set(),
+      drawnTileId: null,
     });
     persist();
     if (isRoundOver(game)) announceRoundEnd(game);
@@ -497,12 +562,20 @@ export function createGame({ onChange, onFeedback }) {
       emit('reject');
       return;
     }
-    const empty = state.game.pool.length === 0;
+    const drawn = state.game.pool[0] ?? null;
     emit('draw');
     applyNewState(
       drawAndPass(state.game),
-      empty ? 'Pioche vide : vous passez.' : 'Vous piochez une tuile.',
+      drawn === null ? 'Pioche vide : vous passez.' : 'Vous piochez une tuile.',
     );
+    if (drawn !== null) {
+      // La tuile reçue est mise en avant quelques instants, le temps de la repérer dans le
+      // chevalet fraîchement retrié.
+      update({ drawnTileId: drawn.id });
+      setTimeout(() => {
+        if (state.drawnTileId === drawn.id) update({ drawnTileId: null });
+      }, 6000);
+    }
   }
 
   function announceRoundEnd(game) {
@@ -645,6 +718,7 @@ export function createGame({ onChange, onFeedback }) {
     toggleSelection,
     clearSelection,
     moveTiles,
+    moveMeld,
     placeSelection,
     returnSelectionToRack,
     sortRack,

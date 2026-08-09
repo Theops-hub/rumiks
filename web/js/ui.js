@@ -34,10 +34,12 @@ const RULES = [
     + 'combinaisons posées, à deux conditions : descendre au moins une tuile de son chevalet et '
     + 'laisser, à la fin de son tour, une table entièrement valide.'],
   ['Les jokers',
-    'Deux jokers circulent, un rouge et un noir ; chacun remplace la tuile de son choix. Une '
-    + 'combinaison qui contient un joker est bloquée : on peut la compléter, mais pas en '
-    + 'reprendre les tuiles. Remplacer le joker par la tuile qu\'il représente le renvoie dans '
-    + 'votre chevalet : il doit alors être rejoué avant la fin du tour.'],
+    'Deux jokers circulent, un rouge et un noir ; chacun remplace la tuile de son choix. Dans '
+    + 'une suite, le joker vaut la place où vous le posez — devant, au milieu ou derrière — et '
+    + 'les points suivent. Une combinaison qui contient un joker est bloquée : on peut la '
+    + 'compléter, mais pas en reprendre les tuiles. Remplacer le joker par la tuile qu\'il '
+    + 'représente le renvoie dans votre chevalet : il doit alors être rejoué avant la fin du '
+    + 'tour.'],
   ['Piocher',
     "Un joueur qui ne peut ou ne veut rien poser pioche une tuile et son tour s'achève."],
   ['Fin de la manche',
@@ -207,6 +209,14 @@ export function createUi(game) {
       const row = document.createElement('div');
       row.className = `meld${sound ? '' : ' invalid'}`;
       row.dataset.meldId = String(meld.id);
+      if (derived.isHumanTurn) {
+        // Poignée de déplacement : attraper toute la combinaison pour réorganiser le tapis.
+        const handle = document.createElement('div');
+        handle.className = 'meld-handle';
+        handle.textContent = '⠿';
+        handle.setAttribute('aria-hidden', 'true');
+        row.append(handle);
+      }
       for (const t of meld.tiles) {
         row.append(tileElement(t, {
           board: true,
@@ -298,11 +308,13 @@ export function createUi(game) {
       ui.game.board.flatMap((m) => m.tiles).filter((t) => t.isJoker).map((t) => t.id),
     );
     for (const t of ui.workRack) {
-      grid.append(tileElement(t, {
+      const el = tileElement(t, {
         selected: ui.selection.has(t.id),
         playable: derived.isHumanTurn,
         mustPlay: committedJokers.has(t.id),
-      }));
+      });
+      if (t.id === ui.drawnTileId) el.classList.add('drawn');
+      grid.append(el);
     }
     host.append(grid);
   }
