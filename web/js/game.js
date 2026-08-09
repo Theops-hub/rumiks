@@ -257,6 +257,9 @@ export function createGame({ onChange, onFeedback }) {
     }
     const game = restored.game;
     reserveMeldIds(game);
+    // Répare les sauvegardes des versions où un identifiant provisoire survivait à la
+    // validation : en double, une pose serait insérée dans deux combinaisons à la fois.
+    game.board = game.board.map((m) => (m.id < 0 ? newMeld(m.tiles) : m));
     history = [];
     update({
       screen: 'game',
@@ -333,6 +336,9 @@ export function createGame({ onChange, onFeedback }) {
     const targetMeld = target.kind === 'meld'
       ? state.workBoard.find((m) => m.id === target.meldId)
       : undefined;
+    // Une destination qui n'existe plus (rendu périmé) : ne rien faire plutôt que de perdre
+    // les tuiles déplacées.
+    if (target.kind === 'meld' && targetMeld === undefined) return false;
     const pureReorder = targetMeld !== undefined
       && fromRack.length === 0
       && fromBoard.every((t) => targetMeld.tiles.some((x) => x.id === t.id));
@@ -382,30 +388,32 @@ export function createGame({ onChange, onFeedback }) {
       board.push(newMeld(reorder(moved), nextTempMeldId--));
     } else if (target.kind === 'meld') {
       const ejected = [];
-      board = board
-        .map((m) => {
-          if (m.id !== target.meldId) return m;
-          const at = target.index === undefined
-            ? m.tiles.length
-            : Math.max(0, Math.min(target.index, m.tiles.length));
-          let tiles = reorder([...m.tiles.slice(0, at), ...moved, ...m.tiles.slice(at)]);
-          // Un joker de la table rendu superflu par un apport extérieur est récupéré : il
-          // rejoint le chevalet, avec l'obligation d'être rejoué avant la fin du tour. Un
-          // simple réarrangement interne, comme les jokers que le joueur vient lui-même de
-          // déposer, ne déloge rien.
-          while (!pureReorder) {
-            const spare = tiles.find((x) => x.isJoker
-              && committedJokers.has(x.id)
-              && !ids.has(x.id)
-              && tiles.length - 1 >= MIN_MELD_SIZE
-              && analyseMeld(tiles.filter((y) => y.id !== x.id)) !== null);
-            if (spare === undefined) break;
-            tiles = reorder(tiles.filter((y) => y.id !== spare.id));
-            ejected.push(spare);
-          }
-          return { ...m, tiles };
-        })
-        .filter((m) => m.tiles.length > 0);
+      // L'insertion vise une combinaison précise, jamais « toutes celles de cet identifiant » :
+      // un identifiant accidentellement en double dupliquerait la pose.
+      const targetIndex = board.findIndex((m) => m.id === target.meldId);
+      if (targetIndex >= 0) {
+        const m = board[targetIndex];
+        const at = target.index === undefined
+          ? m.tiles.length
+          : Math.max(0, Math.min(target.index, m.tiles.length));
+        let tiles = reorder([...m.tiles.slice(0, at), ...moved, ...m.tiles.slice(at)]);
+        // Un joker de la table rendu superflu par un apport extérieur est récupéré : il
+        // rejoint le chevalet, avec l'obligation d'être rejoué avant la fin du tour. Un
+        // simple réarrangement interne, comme les jokers que le joueur vient lui-même de
+        // déposer, ne déloge rien.
+        while (!pureReorder) {
+          const spare = tiles.find((x) => x.isJoker
+            && committedJokers.has(x.id)
+            && !ids.has(x.id)
+            && tiles.length - 1 >= MIN_MELD_SIZE
+            && analyseMeld(tiles.filter((y) => y.id !== x.id)) !== null);
+          if (spare === undefined) break;
+          tiles = reorder(tiles.filter((y) => y.id !== spare.id));
+          ejected.push(spare);
+        }
+        board[targetIndex] = { ...m, tiles };
+      }
+      board = board.filter((m) => m.tiles.length > 0);
       rack = [...rack, ...ejected];
     } else {
       board = board.filter((m) => m.tiles.length > 0);

@@ -340,6 +340,28 @@ test('une combinaison de deux tuiles laissee sur la table est refusee', () => {
   assert.equal(check.ok, false);
 });
 
+test('une combinaison provisoire recoit un identifiant definitif a la validation', () => {
+  const group = [red(9), blue(9), black(9)];
+  const spare = red(1);
+  const state = {
+    players: [
+      { id: 0, name: 'A', difficulty: null, rack: [...group, spare], hasOpened: true, score: 0 },
+      { id: 1, name: 'B', difficulty: null, rack: [blue(2)], hasOpened: true, score: 0 },
+    ],
+    board: [],
+    pool: [orange(4)],
+    currentPlayerIndex: 0,
+    consecutivePasses: 0,
+    endReason: null,
+    winnerIndex: null,
+  };
+  // Une combinaison créée à la main porte un identifiant provisoire négatif : s'il survivait à
+  // la validation, il pourrait resurgir en double et une pose viserait deux combinaisons.
+  const result = commitTurn(state, [newMeld(group, -7)], [spare]);
+  assert.equal(result.ok, true);
+  assert.ok(result.state.board.every((m) => m.id > 0), 'identifiant provisoire persisté');
+});
+
 // ------------------------------------------------------------------ solveur
 
 const solver = (pointWeight = 1) => createSolver({ nodeBudget: 200000, timeLimitMs: 8000, tileWeight: 100, pointWeight });
