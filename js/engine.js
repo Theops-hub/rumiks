@@ -289,7 +289,12 @@ export function commitTurn(state, newBoard, newRack) {
   let next = {
     ...state,
     players,
-    board: newBoard.filter((meld) => meld.tiles.length > 0),
+    board: newBoard
+      .filter((meld) => meld.tiles.length > 0)
+      // Les combinaisons provisoires (id négatif) reçoivent ici leur identifiant définitif.
+      // Un id provisoire qui survivrait à la validation pourrait resurgir en double après une
+      // reprise, et une pose viserait alors deux combinaisons à la fois.
+      .map((meld) => (meld.id < 0 ? newMeld(meld.tiles) : meld)),
     consecutivePasses: 0,
   };
   reserveMeldIds(next);
