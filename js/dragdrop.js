@@ -225,11 +225,17 @@ export function enableDragAndDrop({ root, game, onDropped }) {
   root.addEventListener('pointerdown', (event) => {
     if (event.button !== undefined && event.button !== 0) return;
 
-    // Poignée de combinaison : c'est toute la rangée qui se déplace.
-    const handle = event.target.closest('.meld-handle');
-    if (handle) {
-      const meldEl = handle.closest('.meld[data-meld-id]');
-      if (!meldEl) return;
+    // Saisie d'une combinaison entière : par sa poignée, ou par son cadre — n'importe où qui
+    // n'est ni une tuile ni un bouton. C'est toute la rangée qui se déplace.
+    let meldEl = null;
+    if (event.target.closest('.meld-handle')) {
+      meldEl = event.target.closest('.meld[data-meld-id]');
+    } else if (!event.target.closest('.tile') && !event.target.closest('button')) {
+      const frame = event.target.closest('.meld[data-meld-id]');
+      // Le cadre n'est une prise que si la combinaison est manipulable (c'est notre tour).
+      if (frame && frame.querySelector('.tile.playable')) meldEl = frame;
+    }
+    if (meldEl) {
       event.preventDefault();
       meldDrag = {
         pointerId: event.pointerId,
@@ -243,7 +249,7 @@ export function enableDragAndDrop({ root, game, onDropped }) {
         grabY: 0,
       };
       try {
-        handle.setPointerCapture(event.pointerId);
+        event.target.setPointerCapture(event.pointerId);
       } catch {
         /* sans capture, on suit les événements remontés jusqu'à la racine */
       }
