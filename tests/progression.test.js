@@ -5,10 +5,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  MANCHES_PER_GAME,
   MAX_LEVEL,
   XP_BY_RANK,
-  XP_PER_MANCHE_WON,
   XP_PER_TILE,
   XP_RUMMIKUB_BONUS,
   computeGameXp,
@@ -37,23 +35,22 @@ test('les seuils de niveau croissent et restent coherents', () => {
 });
 
 test('l experience d une partie se decompose et s additionne', () => {
-  const gain = computeGameXp({ tilesLaid: 40, manchesWon: 2, rummikubs: 1, rank: 1 });
-  assert.equal(gain.tiles, 40 * XP_PER_TILE);
-  assert.equal(gain.manches, 2 * XP_PER_MANCHE_WON);
+  const gain = computeGameXp({ tilesLaid: 18, rummikub: true, rank: 1 });
+  assert.equal(gain.tiles, 18 * XP_PER_TILE);
   assert.equal(gain.rummikubBonus, XP_RUMMIKUB_BONUS);
   assert.equal(gain.position, XP_BY_RANK[0]);
-  assert.equal(gain.total, gain.tiles + gain.manches + gain.rummikubBonus + gain.position);
+  assert.equal(gain.total, gain.tiles + gain.rummikubBonus + gain.position);
 });
 
 test('meme dernier, un joueur gagne un peu d experience', () => {
-  const gain = computeGameXp({ tilesLaid: 0, manchesWon: 0, rummikubs: 0, rank: 4 });
+  const gain = computeGameXp({ tilesLaid: 0, rummikub: false, rank: 4 });
   assert.ok(gain.total > 0);
 });
 
 test('un rang hors bornes est ramene dans le bareme', () => {
-  assert.equal(computeGameXp({ tilesLaid: 0, manchesWon: 0, rummikubs: 0, rank: 0 }).position, XP_BY_RANK[0]);
+  assert.equal(computeGameXp({ tilesLaid: 0, rummikub: false, rank: 0 }).position, XP_BY_RANK[0]);
   assert.equal(
-    computeGameXp({ tilesLaid: 0, manchesWon: 0, rummikubs: 0, rank: 9 }).position,
+    computeGameXp({ tilesLaid: 0, rummikub: false, rank: 9 }).position,
     XP_BY_RANK[XP_BY_RANK.length - 1],
   );
 });
@@ -66,6 +63,3 @@ test('les progressions de l ancienne version sont converties sans perte de nivea
   assert.deepEqual(normalizeProgress({ level: 'abc' }), { xp: 0 });
 });
 
-test('une partie compte plusieurs manches', () => {
-  assert.ok(MANCHES_PER_GAME >= 2);
-});

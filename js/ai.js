@@ -3,7 +3,7 @@
 // La force des adversaires ne repose pas sur un handicap artificiel mais sur l'étendue des
 // coups qu'ils envisagent : un débutant ne voit que les combinaisons qu'il peut former seul,
 // un joueur moyen sait aussi compléter ce qui est déjà posé, un joueur fort refond la table.
-// Elle suit le niveau du joueur, qui monte d'un cran à chaque manche gagnée.
+// Elle suit le niveau du joueur, nourri par l'expérience gagnée à chaque fin de partie.
 
 import { newMeld } from './engine.js';
 import { MAX_LEVEL } from './progression.js';

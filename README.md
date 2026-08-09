@@ -88,7 +88,7 @@ sw.js               service worker : tout en cache, jeu jouable sans réseau
 tests/              suite de tests du moteur, portée depuis la version Android
 ```
 
-Le moteur est un port fidèle du Kotlin, enrichi depuis : 58 cas de tests, dont des manches
+Le moteur est un port fidèle du Kotlin, enrichi depuis : 60 cas de tests, dont des parties
 entières jouées par l'IA en vérifiant chaque coup.
 
 ## Occupation de l'écran

@@ -5,12 +5,7 @@
 // complexité d'une mise à jour incrémentale.
 
 import { EXTENDS_FROM_LEVEL, REARRANGES_FROM_LEVEL } from './ai.js';
-import {
-  MANCHES_PER_GAME,
-  MAX_LEVEL,
-  xpFloorForLevel,
-  xpForNextLevel,
-} from './progression.js';
+import { MAX_LEVEL, xpFloorForLevel, xpForNextLevel } from './progression.js';
 import { HUMAN_INDEX, ROUND_END_RUMMIKUB, isRoundOver, rackPenalty } from './engine.js';
 import { COLORS, INITIAL_MELD_POINTS, JOKER_PENALTY, analyseMeld, tile } from './rules.js';
 
@@ -19,7 +14,7 @@ const $ = (id) => document.getElementById(id);
 const RULES = [
   ['Le matériel',
     '106 tuiles : les numéros 1 à 13 dans quatre couleurs, chacun en double, plus deux jokers. '
-    + 'Chaque joueur reçoit 14 tuiles au début de la manche.'],
+    + 'Chaque joueur reçoit 14 tuiles au début de la partie.'],
   ['Les combinaisons',
     "Une suite réunit au moins trois numéros consécutifs d'une même couleur ; le 13 ne se relie "
     + 'jamais au 1. Un groupe réunit trois ou quatre fois le même numéro, toutes les couleurs '
@@ -42,10 +37,10 @@ const RULES = [
     + 'alors être rejoué avant la fin du tour.'],
   ['Piocher',
     "Un joueur qui ne peut ou ne veut rien poser pioche une tuile et son tour s'achève."],
-  ['Fin de la manche',
-    'Le premier joueur à poser sa dernière tuile crie « Rummikub » et remporte la manche. Si la '
+  ['Fin de la partie',
+    'Le premier joueur à poser sa dernière tuile crie « Rummikub » et remporte la partie. Si la '
     + 'pioche s\'épuise sans que personne ne puisse jouer, c\'est le chevalet le plus léger qui '
-    + 'l\'emporte.'],
+    + 'l\'emporte. L\'expérience tombe à chaque fin de partie.'],
   ['Le décompte',
     `Chaque perdant totalise en négatif les points restants sur son chevalet, un joker comptant `
     + `${JOKER_PENALTY}. Le gagnant marque en positif la somme de ces pénalités.`],
@@ -146,8 +141,8 @@ export function createUi(game) {
       const progress = document.createElement('p');
       progress.textContent = `${inLevel} / ${needed} XP avant le niveau ${ui.level + 1}`;
       const hint = document.createElement('p');
-      hint.textContent = "L'expérience se gagne en fin de partie : tuiles posées, manches "
-        + 'gagnées, position au classement. Les adversaires progressent avec vous.';
+      hint.textContent = "L'expérience se gagne à chaque fin de partie : tuiles posées, "
+        + 'Rummikub, position au classement. Les adversaires progressent avec vous.';
       host.append(bar, progress, hint);
     } else {
       const hint = document.createElement('p');
@@ -186,7 +181,6 @@ export function createUi(game) {
       host.append(chip);
     });
     $('player-level').textContent = `Niveau ${ui.level}`;
-    $('manche-count').textContent = `Manche ${ui.partie.manche}/${MANCHES_PER_GAME}`;
     $('pool-count').textContent = `Pioche ${ui.game.pool.length}`;
   }
 
@@ -350,35 +344,27 @@ export function createUi(game) {
     const game_ = ui.game;
     if (!game_ || !isRoundOver(game_)) return;
     const winner = game_.winnerIndex;
-    $('round-end-title').textContent = ui.gameOver
-      ? 'Fin de partie'
-      : (game_.endReason === ROUND_END_RUMMIKUB ? 'Rummikub !' : 'Manche bloquée');
-    $('btn-next-round').textContent = ui.gameOver ? 'Nouvelle partie' : 'Manche suivante';
+    $('round-end-title').textContent = game_.endReason === ROUND_END_RUMMIKUB
+      ? 'Rummikub !'
+      : 'Partie bloquée';
 
     const host = $('round-end-body');
     host.replaceChildren();
     const intro = document.createElement('p');
-    const mancheText = game_.endReason === ROUND_END_RUMMIKUB
-      ? `${game_.players[winner].name} a posé sa dernière tuile.`
-      : `La pioche est épuisée et plus personne ne peut jouer. ${game_.players[winner].name} conserve le chevalet le plus léger.`;
-    if (ui.gameOver) {
-      const best = game_.players.reduce((a, b) => (b.score > a.score ? b : a));
-      intro.textContent = `${mancheText} ${best.name} remporte la partie.`;
-    } else {
-      intro.textContent = `Manche ${ui.partie.manche} sur ${MANCHES_PER_GAME} — ${mancheText}`;
-    }
+    intro.textContent = game_.endReason === ROUND_END_RUMMIKUB
+      ? `${game_.players[winner].name} a posé sa dernière tuile et remporte la partie.`
+      : `La pioche est épuisée et plus personne ne peut jouer. ${game_.players[winner].name} conserve le chevalet le plus léger et remporte la partie.`;
     host.append(intro);
 
-    // Bilan de manche : joueurs dans l'ordre de la table. Bilan de partie : au classement.
+    // Le classement de la partie, du premier au dernier.
     const players = game_.players.map((player, index) => ({ player, index }));
-    if (ui.gameOver) players.sort((a, b) => b.player.score - a.player.score);
-    players.forEach(({ player, index }, at) => {
+    players.sort((a, b) => b.player.score - a.player.score);
+    players.forEach(({ player }, at) => {
       const row = document.createElement('div');
-      const highlighted = ui.gameOver ? at === 0 : index === winner;
-      row.className = `score-row${highlighted ? ' winner' : ''}`;
+      row.className = `score-row${at === 0 ? ' winner' : ''}`;
       const name = document.createElement('span');
       name.className = 'name';
-      name.textContent = ui.gameOver ? `${RANK_LABELS[at]} · ${player.name}` : player.name;
+      name.textContent = `${RANK_LABELS[at]} · ${player.name}`;
       const left = document.createElement('span');
       left.className = 'left';
       left.textContent = `${player.rack.length} tuile(s), ${rackPenalty(player)} pts en main`;
@@ -389,11 +375,10 @@ export function createUi(game) {
       host.append(row);
     });
 
-    if (ui.gameOver && ui.xpGain) {
+    if (ui.xpGain) {
       const gains = [
         [`Tuiles posées (${ui.partie.tilesLaid})`, ui.xpGain.tiles],
-        [`Manches gagnées (${ui.partie.manchesWon})`, ui.xpGain.manches],
-        [`Rummikub (${ui.partie.rummikubs})`, ui.xpGain.rummikubBonus],
+        ['Rummikub', ui.xpGain.rummikubBonus],
         [`Position finale (${RANK_LABELS[ui.xpGain.rank - 1]})`, ui.xpGain.position],
       ];
       const block = document.createElement('div');

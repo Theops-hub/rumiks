@@ -6,7 +6,7 @@
 
 // Numéro à incrémenter à chaque publication : c'est ce qui déclenche la mise à jour du cache
 // chez les joueurs, l'ancien étant supprimé à l'activation.
-const CACHE = 'rumiks-v12';
+const CACHE = 'rumiks-v13';
 
 const ASSETS = [
   './',
