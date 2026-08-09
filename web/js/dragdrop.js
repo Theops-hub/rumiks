@@ -18,10 +18,12 @@ const FINGER_LIFT = 22;
 
 /**
  * Écart toléré entre la tuile portée et une combinaison pour l'y joindre. La comparaison porte
- * sur les deux rectangles et non sur un point : on accole une tuile contre une autre, il suffit
- * donc de l'en approcher.
+ * sur les deux rectangles et non sur un point : on accole une tuile contre une autre, il faut
+ * donc la mettre au contact (à un souffle près). Une tolérance plus large aimantait les tuiles
+ * relâchées dans les interstices du tapis vers des combinaisons que le joueur ne visait pas —
+ * sur un plateau garni, tout l'espace libre était à moins de 30 px d'une rangée.
  */
-const DROP_TOLERANCE = 30;
+const DROP_TOLERANCE = 8;
 
 /**
  * Repère où insérer entre deux tuiles : à gauche ou à droite de celle qu'on survole. Les tuiles
