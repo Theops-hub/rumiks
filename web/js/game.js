@@ -16,7 +16,7 @@ import {
   reserveMeldIds,
   startRound,
 } from './engine.js';
-import { INITIAL_MELD_POINTS, analyseMeld, sortByColor, sortByNumber } from './rules.js';
+import { INITIAL_MELD_POINTS, MIN_MELD_SIZE, analyseMeld, sortByColor, sortByNumber } from './rules.js';
 import { clearGame, loadGame, loadSettings, saveGame, saveSettings } from './storage.js';
 
 const OPPONENT_NAMES = ['Alice', 'Bruno', 'Chloé'];
@@ -50,10 +50,18 @@ export function createGame({ onChange, onFeedback }) {
     canResume: saved !== null,
     soundEnabled: settings.soundEnabled,
     hapticsEnabled: settings.hapticsEnabled,
+    /** Tuiles posées par les adversaires depuis la dernière action du joueur : surlignées. */
+    recentTileIds: new Set(),
   };
 
   /** Identifiants négatifs pour les combinaisons créées à la main : aucune collision possible. */
   let nextTempMeldId = -1;
+
+  /**
+   * Photographies successives de la table et du chevalet pendant le tour : « Annuler » revient
+   * d'un déplacement en arrière, pas au début du tour.
+   */
+  let history = [];
 
   function notify() {
     onChange(state);
@@ -86,15 +94,25 @@ export function createGame({ onChange, onFeedback }) {
     return state.workBoard.every((m) => m.tiles.length >= 3 && analyseMeld(m.tiles) !== null);
   }
 
-  /** Points de la pose initiale en cours de constitution. */
+  /**
+   * Points de la pose initiale en cours de constitution : seules comptent les combinaisons
+   * formées uniquement de tuiles du chevalet, jokers exclus.
+   */
   function pendingOpeningPoints() {
     if (state.game === null || state.game.players[HUMAN_INDEX].hasOpened) return 0;
-    const already = new Set(
-      state.game.board.map((m) => m.tiles.map((t) => t.id).sort((a, b) => a - b).join(',')),
-    );
+    const rackIds = new Set(state.game.players[HUMAN_INDEX].rack.map((t) => t.id));
     return state.workBoard
-      .filter((m) => !already.has(m.tiles.map((t) => t.id).sort((a, b) => a - b).join(',')))
+      .filter((m) => m.tiles.every((t) => rackIds.has(t.id) && !t.isJoker))
       .reduce((sum, m) => sum + (analyseMeld(m.tiles)?.points ?? 0), 0);
+  }
+
+  /** Vrai si un joker récupéré sur la table attend dans le chevalet d'être rejoué. */
+  function jokerToReplay() {
+    if (state.game === null) return false;
+    const committedJokers = new Set(
+      state.game.board.flatMap((m) => m.tiles).filter((t) => t.isJoker).map((t) => t.id),
+    );
+    return state.workRack.some((t) => committedJokers.has(t.id));
   }
 
   /**
@@ -114,6 +132,8 @@ export function createGame({ onChange, onFeedback }) {
 
   function canCommit() {
     if (!isHumanTurn() || tilesLaidThisTurn() <= 0 || !boardIsSound()) return false;
+    // Un joker récupéré doit être rejoué avant de rendre la main.
+    if (jokerToReplay()) return false;
     // Sans pose initiale, inutile de proposer la validation avant le seuil.
     return state.game.players[HUMAN_INDEX].hasOpened
       || pendingOpeningPoints() >= INITIAL_MELD_POINTS;
@@ -147,6 +167,7 @@ export function createGame({ onChange, onFeedback }) {
       carriedScores,
     });
     reserveMeldIds(game);
+    history = [];
     update({
       screen: 'game',
       game,
@@ -157,6 +178,7 @@ export function createGame({ onChange, onFeedback }) {
       log: [`La partie commence. C'est à ${currentPlayer(game).name}.`],
       canResume: true,
       aiThinking: false,
+      recentTileIds: new Set(),
     });
     persist();
     if (game.currentPlayerIndex !== HUMAN_INDEX) runAiTurns();
@@ -172,6 +194,7 @@ export function createGame({ onChange, onFeedback }) {
 
   /** Quitter la partie la laisse en suspens : elle reste reprenable depuis l'accueil. */
   function backToHome() {
+    history = [];
     update({
       screen: 'home',
       game: null,
@@ -181,6 +204,7 @@ export function createGame({ onChange, onFeedback }) {
       message: null,
       aiThinking: false,
       canResume: loadGame() !== null,
+      recentTileIds: new Set(),
     });
   }
 
@@ -193,6 +217,7 @@ export function createGame({ onChange, onFeedback }) {
     }
     const game = restored.game;
     reserveMeldIds(game);
+    history = [];
     update({
       screen: 'game',
       difficulty: restored.difficulty,
@@ -204,6 +229,7 @@ export function createGame({ onChange, onFeedback }) {
       message: null,
       log: restored.log?.length ? restored.log : ['Partie reprise.'],
       aiThinking: false,
+      recentTileIds: new Set(),
     });
     if (!isRoundOver(game) && game.currentPlayerIndex !== HUMAN_INDEX) runAiTurns();
   }
@@ -251,10 +277,36 @@ export function createGame({ onChange, onFeedback }) {
     const moved = [...fromBoard, ...fromRack];
     if (moved.length === 0) return false;
 
+    const committedMelds = state.game.board;
+    const committedJokers = new Set(
+      committedMelds.flatMap((m) => m.tiles).filter((t) => t.isJoker).map((t) => t.id),
+    );
+
+    // Une combinaison qui contient un joker est bloquée : ses tuiles réelles ne se déplacent
+    // pas, on peut seulement la compléter ou reprendre le joker en le remplaçant.
+    const frozenIds = new Set(
+      committedMelds
+        .filter((m) => m.tiles.some((t) => t.isJoker))
+        .flatMap((m) => m.tiles.filter((t) => !t.isJoker).map((t) => t.id)),
+    );
+    const leavesItsMeld = (t) => {
+      const source = state.workBoard.find((m) => m.tiles.some((x) => x.id === t.id));
+      return !(target.kind === 'meld' && source !== undefined && target.meldId === source.id);
+    };
+    if (moved.some((t) => frozenIds.has(t.id) && leavesItsMeld(t))) {
+      update({
+        message: 'Cette combinaison contient un joker : elle est bloquée. On peut la compléter ou remplacer le joker, pas en reprendre les tuiles.',
+        selection: new Set(),
+      });
+      emit('reject');
+      return false;
+    }
+
     if (target.kind === 'rack') {
-      // Les règles interdisent de reprendre une tuile posée avant ce tour.
-      const committed = new Set(state.game.board.flatMap((m) => m.tiles).map((t) => t.id));
-      if (moved.some((t) => committed.has(t.id))) {
+      // Les règles interdisent de reprendre une tuile posée avant ce tour — sauf le joker,
+      // qui se récupère en le remplaçant et devra être rejoué avant la fin du tour.
+      const committed = new Set(committedMelds.flatMap((m) => m.tiles).map((t) => t.id));
+      if (moved.some((t) => !t.isJoker && committed.has(t.id))) {
         update({
           message: 'Ces tuiles étaient déjà sur la table avant votre tour : elles y restent.',
           selection: new Set(),
@@ -274,16 +326,31 @@ export function createGame({ onChange, onFeedback }) {
       board = board.filter((m) => m.tiles.length > 0);
       board.push(newMeld(reorder(moved), nextTempMeldId--));
     } else if (target.kind === 'meld') {
+      const ejected = [];
       board = board
         .map((m) => {
           if (m.id !== target.meldId) return m;
           const at = target.index === undefined
             ? m.tiles.length
             : Math.max(0, Math.min(target.index, m.tiles.length));
-          const tiles = [...m.tiles.slice(0, at), ...moved, ...m.tiles.slice(at)];
-          return { ...m, tiles: reorder(tiles) };
+          let tiles = reorder([...m.tiles.slice(0, at), ...moved, ...m.tiles.slice(at)]);
+          // Un joker de la table rendu superflu par cet ajout est récupéré : il rejoint le
+          // chevalet, avec l'obligation d'être rejoué avant la fin du tour. Les jokers que le
+          // joueur vient lui-même de déposer restent où il les a mis.
+          for (;;) {
+            const spare = tiles.find((x) => x.isJoker
+              && committedJokers.has(x.id)
+              && !ids.has(x.id)
+              && tiles.length - 1 >= MIN_MELD_SIZE
+              && analyseMeld(tiles.filter((y) => y.id !== x.id)) !== null);
+            if (spare === undefined) break;
+            tiles = reorder(tiles.filter((y) => y.id !== spare.id));
+            ejected.push(spare);
+          }
+          return { ...m, tiles };
         })
         .filter((m) => m.tiles.length > 0);
+      rack = [...rack, ...ejected];
     } else {
       board = board.filter((m) => m.tiles.length > 0);
       const at = target.index === undefined
@@ -292,6 +359,8 @@ export function createGame({ onChange, onFeedback }) {
       rack = [...rack.slice(0, at), ...moved, ...rack.slice(at)];
     }
 
+    history.push({ board: state.workBoard, rack: state.workRack });
+    if (history.length > 100) history.shift();
     update({ workBoard: board, workRack: rack, selection: new Set(), message: null });
     emit(target.kind === 'rack' ? 'select' : 'place');
     return true;
@@ -332,11 +401,13 @@ export function createGame({ onChange, onFeedback }) {
     });
   }
 
+  /** Revient d'un déplacement en arrière ; répété, il ramène au début du tour. */
   function undoTurn() {
     if (state.game === null) return;
+    const previous = history.pop();
     update({
-      workBoard: state.game.board,
-      workRack: state.game.players[HUMAN_INDEX].rack,
+      workBoard: previous?.board ?? state.game.board,
+      workRack: previous?.rack ?? state.game.players[HUMAN_INDEX].rack,
       selection: new Set(),
       message: null,
     });
@@ -345,6 +416,7 @@ export function createGame({ onChange, onFeedback }) {
   // ------------------------------------------------------------ fin de tour
 
   function applyNewState(game, logLine) {
+    history = [];
     update({
       game,
       workBoard: game.board,
@@ -352,6 +424,8 @@ export function createGame({ onChange, onFeedback }) {
       selection: new Set(),
       message: null,
       log: [...state.log, logLine].slice(-30),
+      // Le joueur vient d'agir : les poses adverses encore surlignées ne le sont plus.
+      recentTileIds: new Set(),
     });
     persist();
     if (isRoundOver(game)) announceRoundEnd(game);
@@ -367,7 +441,7 @@ export function createGame({ onChange, onFeedback }) {
       return;
     }
     emit('commit');
-    const laid = result.tilesPlayed;
+    const laid = result.tilesPlayed.length;
     applyNewState(result.state, `Vous posez ${laid} tuile${laid > 1 ? 's' : ''}.`);
   }
 
@@ -419,11 +493,13 @@ export function createGame({ onChange, onFeedback }) {
       const move = chooseMove(game, player.difficulty ?? state.difficulty);
       let next;
       let line;
+      let laidTiles = [];
       if (move.type === 'play') {
         const result = engineCommit(game, move.board, move.rack);
         if (result.ok) {
           next = result.state;
-          const laid = result.tilesPlayed;
+          laidTiles = result.tilesPlayed;
+          const laid = laidTiles.length;
           line = `${player.name} pose ${laid} tuile${laid > 1 ? 's' : ''}.`;
           emit('place', { haptic: false });
         } else {
@@ -438,11 +514,14 @@ export function createGame({ onChange, onFeedback }) {
         emit('draw', { haptic: false });
       }
 
+      history = [];
       update({
         game: next,
         workBoard: next.board,
         workRack: next.players[HUMAN_INDEX].rack,
         log: [...state.log, line].slice(-30),
+        // Les poses adverses s'accumulent en surbrillance jusqu'à la prochaine action du joueur.
+        recentTileIds: new Set([...state.recentTileIds, ...laidTiles.map((t) => t.id)]),
       });
       persist();
       if (isRoundOver(next)) {
@@ -478,6 +557,8 @@ export function createGame({ onChange, onFeedback }) {
       canCommit: canCommit(),
       hasPendingChanges: hasPendingChanges(),
       pendingOpeningPoints: pendingOpeningPoints(),
+      canUndo: history.length > 0,
+      jokerToReplay: jokerToReplay(),
     }),
     chooseDifficulty,
     chooseOpponentCount,

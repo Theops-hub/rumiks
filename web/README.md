@@ -46,15 +46,16 @@ disponibles pour qui préfère désigner sa cible plutôt que viser, et les tuil
 au clavier.
 
 Une combinaison incomplète ou fausse s'entoure de rouge, et **Valider** ne s'active que lorsque
-toute la table est correcte et qu'au moins une tuile a été descendue. **Annuler** rétablit la
-situation du début de tour, **Piocher** termine le tour.
+toute la table est correcte et qu'au moins une tuile a été descendue. **Annuler** revient d'un
+déplacement en arrière — répété, il ramène au début du tour —, **Piocher** termine le tour. Les
+tuiles posées par les adversaires restent surlignées jusqu'à la fin de votre tour.
 
 ## Essayer depuis cet ordinateur
 
 ```
 cd web
 node tools/serve.js          # puis http://localhost:8080/
-node --test tests/           # la suite de tests du moteur
+node --test tests/engine.test.js   # la suite de tests du moteur
 ```
 
 Le serveur affiche aussi l'adresse à utiliser depuis un appareil du même réseau Wi-Fi, pratique

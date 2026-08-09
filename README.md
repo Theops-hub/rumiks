@@ -1,6 +1,6 @@
 # Rumiks
 
-Jeu de tuiles reprenant les règles officielles du Rummikub, contre des joueurs virtuels de trois
+Jeu de tuiles reprenant les règles du Rummikub, contre des joueurs virtuels de trois
 niveaux. Il s'ajoute à l'écran d'accueil d'un iPad et se joue **entièrement hors ligne**.
 
 **Jouer : <https://theops-hub.github.io/rumiks/>**
@@ -23,15 +23,17 @@ différentes). Les jokers remplacent n'importe quelle tuile ; une combinaison do
 moins une tuile réelle.
 
 **Pose initiale.** 30 points minimum en une seule fois, formés uniquement avec les tuiles de son
-chevalet. Tant qu'elle n'est pas faite, les combinaisons déjà sur la table sont intouchables.
+chevalet et sans joker. Une fois le seuil atteint, le tour se poursuit librement : le joueur peut
+enchaîner d'autres poses et compléter la table dans la foulée.
 
 **Manipulation de la table.** Une fois ouvert, un joueur découpe, fusionne et réarrange librement
 ce qui est posé, à condition de descendre au moins une tuile de sa main et de laisser une table
 entièrement valide en fin de tour.
 
-**Jokers.** Un joker posé peut être récupéré en le remplaçant par la tuile qu'il représente, mais
-il doit être rejoué dans le même tour : il ne retourne jamais sur un chevalet. Plus généralement,
-aucune tuile posée ne peut être reprise en main.
+**Jokers.** Deux jokers circulent, un rouge et un noir. Une combinaison qui contient un joker est
+bloquée : on peut la compléter, mais pas en reprendre les tuiles. Remplacer le joker par la tuile
+qu'il représente le renvoie dans le chevalet, avec l'obligation de le rejouer avant la fin du
+tour. Plus généralement, aucune autre tuile posée ne peut être reprise en main.
 
 **Fin de manche et décompte.** Le premier joueur à vider son chevalet remporte la manche. Si la
 pioche s'épuise et que plus personne ne peut jouer, c'est le chevalet le plus léger qui gagne.
@@ -64,7 +66,7 @@ cd web
 node --test tests/engine.test.js
 ```
 
-45 cas couvrent les combinaisons, la légalité d'un tour, le solveur, et des manches entières
+49 cas couvrent les combinaisons, la légalité d'un tour, le solveur, et des manches entières
 jouées par les joueurs virtuels en contrôlant chaque coup et la conservation des 106 tuiles.
 
 ## Limites connues

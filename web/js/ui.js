@@ -20,16 +20,18 @@ const RULES = [
     + 'étant différentes.'],
   ['La pose initiale',
     `Tant qu'un joueur n'a pas posé ${INITIAL_MELD_POINTS} points d'un seul coup, il ne peut rien `
-    + 'faire d\'autre. Cette première pose se fait uniquement avec ses propres tuiles : '
-    + 'interdiction d\'utiliser celles déjà sur la table.'],
+    + 'faire d\'autre. Ces points se font uniquement avec ses propres tuiles, sans joker. Une '
+    + 'fois le seuil atteint, le tour continue librement : on peut enchaîner d\'autres poses et '
+    + 'compléter la table dans la foulée.'],
   ['Manipuler la table',
     'Une fois ouvert, un joueur peut découper, fusionner et réarranger librement les '
     + 'combinaisons posées, à deux conditions : descendre au moins une tuile de son chevalet et '
     + 'laisser, à la fin de son tour, une table entièrement valide.'],
   ['Les jokers',
-    'Un joker remplace la tuile de son choix. Posé sur la table, il peut être récupéré en le '
-    + 'remplaçant par la tuile qu\'il représente, mais il doit alors être rejoué dans le même '
-    + 'tour : il ne retourne jamais sur un chevalet.'],
+    'Deux jokers circulent, un rouge et un noir ; chacun remplace la tuile de son choix. Une '
+    + 'combinaison qui contient un joker est bloquée : on peut la compléter, mais pas en '
+    + 'reprendre les tuiles. Remplacer le joker par la tuile qu\'il représente le renvoie dans '
+    + 'votre chevalet : il doit alors être rejoué avant la fin du tour.'],
   ['Piocher',
     "Un joueur qui ne peut ou ne veut rien poser pioche une tuile et son tour s'achève."],
   ['Fin de la manche',
@@ -43,13 +45,17 @@ const RULES = [
 
 /** Comment jouer, rappelé sur la table tant que rien n'est posé. */
 const EMPTY_BOARD_HINT = 'Faites glisser vos tuiles ici pour former vos combinaisons. '
-  + `Il faut ${INITIAL_MELD_POINTS} points pour ouvrir.`;
+  + `Il faut ${INITIAL_MELD_POINTS} points pour ouvrir, sans joker.`;
 
-function tileElement(t, { selected = false, board = false, playable = false } = {}) {
+function tileElement(t, {
+  selected = false, board = false, playable = false, recent = false, mustPlay = false,
+} = {}) {
   const el = document.createElement('div');
   el.className = `tile ${t.color}${board ? ' board' : ''}${selected ? ' selected' : ''}`;
   if (t.isJoker) el.classList.add('joker');
   if (playable) el.classList.add('playable');
+  if (recent) el.classList.add('recent');
+  if (mustPlay) el.classList.add('must-play');
   el.dataset.tileId = String(t.id);
 
   const value = document.createElement('span');
@@ -175,6 +181,7 @@ export function createUi(game) {
           board: true,
           selected: ui.selection.has(t.id),
           playable: derived.isHumanTurn,
+          recent: ui.recentTileIds.has(t.id),
         }));
       }
       if (derived.isHumanTurn && ui.selection.size > 0) {
@@ -202,15 +209,24 @@ export function createUi(game) {
   function statusText(ui, derived) {
     if (ui.message) return ui.message;
     if (ui.aiThinking) return `${ui.game.players[ui.game.currentPlayerIndex].name} réfléchit…`;
+    if (derived.isHumanTurn && !derived.boardIsSound) {
+      return 'Une combinaison est incomplète ou invalide (encadrée en rouge).';
+    }
+    if (derived.jokerToReplay) {
+      return 'Le joker récupéré doit être rejoué avant de valider.';
+    }
     if (!ui.game.players[HUMAN_INDEX].hasOpened && !isRoundOver(ui.game)) {
-      return `Pose initiale : ${derived.pendingOpeningPoints} / ${INITIAL_MELD_POINTS} points`;
+      return `Pose initiale : ${derived.pendingOpeningPoints} / ${INITIAL_MELD_POINTS} points, sans joker`;
     }
     return ui.log[ui.log.length - 1] ?? '';
   }
 
   function renderStatus(ui, derived) {
     const host = $('status');
-    host.className = `status${ui.message ? ' warning' : ''}`;
+    const warning = ui.message
+      || (derived.isHumanTurn && !derived.boardIsSound)
+      || derived.jokerToReplay;
+    host.className = `status${warning ? ' warning' : ''}`;
     host.replaceChildren();
     if (ui.aiThinking) {
       const spinner = document.createElement('span');
@@ -246,10 +262,15 @@ export function createUi(game) {
       : Math.ceil(ui.workRack.length / 2);
     grid.style.setProperty('--rack-columns', String(columns));
 
+    // Un joker récupéré sur la table attend ici d'être rejoué : il est signalé.
+    const committedJokers = new Set(
+      ui.game.board.flatMap((m) => m.tiles).filter((t) => t.isJoker).map((t) => t.id),
+    );
     for (const t of ui.workRack) {
       grid.append(tileElement(t, {
         selected: ui.selection.has(t.id),
         playable: derived.isHumanTurn,
+        mustPlay: committedJokers.has(t.id),
       }));
     }
     host.append(grid);
@@ -259,7 +280,7 @@ export function createUi(game) {
     $('btn-return').disabled = !derived.isHumanTurn || ui.selection.size === 0;
     $('btn-sort-color').disabled = !derived.isHumanTurn;
     $('btn-sort-number').disabled = !derived.isHumanTurn;
-    $('btn-undo').disabled = !derived.isHumanTurn || !derived.hasPendingChanges;
+    $('btn-undo').disabled = !derived.isHumanTurn || !derived.canUndo;
     $('btn-draw').disabled = !derived.isHumanTurn || derived.hasPendingChanges;
     $('btn-commit').disabled = !derived.canCommit;
     $('btn-sound').setAttribute('aria-pressed', String(ui.soundEnabled));
