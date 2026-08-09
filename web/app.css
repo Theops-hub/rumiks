@@ -295,38 +295,26 @@ body {
 .brand {
   display: flex;
   align-items: center;
-  gap: 0.9rem;
   justify-content: center;
 }
 
-.brand-tiles {
-  display: flex;
-  gap: 0.35rem;
+/* Le logo du jeu, fourni en 2x : arrondi pour se fondre dans le feutre. */
+.brand-logo {
+  display: block;
+  width: min(500px, 86vw, 46vh);
+  max-width: 100%;
+  border-radius: 18px;
+  box-shadow: 0 10px 24px rgba(8, 23, 17, 0.5);
 }
 
-.brand-tiles .tile {
-  animation: sway 3.4s ease-in-out infinite alternate;
-}
-
-.brand-tiles .tile:nth-child(1) { animation-delay: -0.6s; }
-.brand-tiles .tile:nth-child(3) { animation-delay: -1.2s; }
-
-@keyframes sway {
-  from { transform: rotate(-2deg); }
-  to { transform: rotate(2deg); }
-}
-
-.brand-text h1 {
-  margin: 0;
-  font-size: clamp(1.8rem, 4.4vh, 2.6rem);
-  letter-spacing: 0.04em;
-  color: var(--gold-bright);
-}
-
-.brand-text p {
-  margin: 0.15rem 0 0;
-  font-size: 0.85rem;
-  color: var(--text);
+/* Présent pour les lecteurs d'écran, invisible à l'écran. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .section-label {
@@ -911,7 +899,7 @@ body {
 /* Sur un écran vraiment étroit ou bas de plafond, on resserre plutôt que de faire défiler. */
 @media (max-height: 420px) {
   :root { --tile-w: clamp(28px, min(5.6vh, (100vw - 2rem) / 15), 48px); }
-  .brand-text h1 { font-size: 1.5rem; }
+  .brand-logo { width: min(360px, 80vw, 60vh); }
   .level-card p { font-size: 0.75rem; }
 }
 

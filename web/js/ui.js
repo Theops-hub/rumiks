@@ -7,7 +7,7 @@
 import { EXTENDS_FROM_LEVEL, REARRANGES_FROM_LEVEL } from './ai.js';
 import { MAX_LEVEL, xpFloorForLevel, xpForNextLevel } from './progression.js';
 import { HUMAN_INDEX, ROUND_END_RUMMIKUB, isRoundOver, rackPenalty } from './engine.js';
-import { COLORS, INITIAL_MELD_POINTS, JOKER_PENALTY, analyseMeld, tile } from './rules.js';
+import { COLORS, INITIAL_MELD_POINTS, JOKER_PENALTY, analyseMeld } from './rules.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -85,15 +85,6 @@ export function createUi(game) {
   const state = () => game.getState();
 
   // ---------------------------------------------------------------- accueil
-
-  function renderBrandTiles() {
-    const host = $('brand-tiles');
-    host.replaceChildren(
-      tileElement(tile(-1, 1, 'red')),
-      tileElement(tile(-2, 3, 'blue')),
-      tileElement(tile(-3, 0, 'black', true)),
-    );
-  }
 
   function renderOpponentPills(ui) {
     const host = $('opponent-pills');
@@ -532,7 +523,6 @@ export function createUi(game) {
     endModal.hidden = !showEnd;
   }
 
-  renderBrandTiles();
   renderRules();
   return { render };
 }
