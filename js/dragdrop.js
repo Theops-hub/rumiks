@@ -107,6 +107,17 @@ export function enableDragAndDrop({ root, game, onDropped }) {
    * Position visée par la combinaison portée, parmi les autres : la rangée au-dessus du
    * pointeur passe avant, celle qui l'entoure se départage à sa moitié.
    */
+  /** Combinaison sous le pointeur, la portée exclue : c'est la cible d'une fusion éventuelle. */
+  function meldUnderPointer(clientX, clientY, draggedEl) {
+    for (const el of root.querySelectorAll('#board .meld[data-meld-id]')) {
+      if (el === draggedEl) continue;
+      const box = el.getBoundingClientRect();
+      if (clientX >= box.left && clientX <= box.right
+        && clientY >= box.top && clientY <= box.bottom) return el;
+    }
+    return null;
+  }
+
   function meldInsertion(clientX, clientY, draggedEl) {
     const melds = [...root.querySelectorAll('#board .meld[data-meld-id]')]
       .filter((el) => el !== draggedEl);
@@ -123,12 +134,16 @@ export function enableDragAndDrop({ root, game, onDropped }) {
 
   function finishMeldDrag(event) {
     const { ghost, meldEl, meldId, moved } = meldDrag;
+    const over = moved ? meldUnderPointer(event.clientX, event.clientY, meldEl) : null;
     const target = moved ? meldInsertion(event.clientX, event.clientY, meldEl) : null;
     ghost?.remove();
     clearHighlight();
     meldEl.classList.remove('meld-dragging');
     meldDrag = null;
-    if (target === null) return;
+    if (!moved) return;
+    // Déposée sur une combinaison compatible, la série fusionne avec elle ; sinon le geste
+    // reste un repositionnement.
+    if (over !== null && game.mergeMelds(meldId, Number(over.dataset.meldId))) return;
     const done = game.moveMeld(meldId, target.index);
     if (!done) onDropped();
   }
@@ -309,9 +324,16 @@ export function enableDragAndDrop({ root, game, onDropped }) {
         `translate(${event.clientX - meldDrag.grabX}px, ${event.clientY - meldDrag.grabY}px)`;
 
       clearHighlight();
-      const target = meldInsertion(event.clientX, event.clientY, meldDrag.meldEl);
-      if (target.element !== null) {
-        target.element.classList.add(target.after ? 'insert-after' : 'insert-before');
+      // Survoler une combinaison compatible annonce la fusion ; ailleurs, le liseré montre où
+      // la série va se repositionner.
+      const over = meldUnderPointer(event.clientX, event.clientY, meldDrag.meldEl);
+      if (over !== null && game.canMergeMelds(meldDrag.meldId, Number(over.dataset.meldId))) {
+        over.classList.add('drop-target');
+      } else {
+        const target = meldInsertion(event.clientX, event.clientY, meldDrag.meldEl);
+        if (target.element !== null) {
+          target.element.classList.add(target.after ? 'insert-after' : 'insert-before');
+        }
       }
       return;
     }

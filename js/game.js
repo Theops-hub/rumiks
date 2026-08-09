@@ -383,6 +383,26 @@ export function createGame({ onChange, onFeedback }) {
     }));
     let rack = state.workRack.filter((t) => !ids.has(t.id));
 
+    // Prélever au milieu d'une suite la coupe d'elle-même en deux, dès lors que chaque moitié
+    // reste une combinaison valable. La destination du geste n'est pas concernée : elle est en
+    // train de recevoir des tuiles.
+    if (!pureReorder) {
+      board = board.flatMap((m) => {
+        if (target.kind === 'meld' && m.id === target.meldId) return [m];
+        const origin = state.workBoard.find((x) => x.id === m.id);
+        if (origin === undefined || origin.tiles.length === m.tiles.length) return [m];
+        if (m.tiles.length < 2 * MIN_MELD_SIZE || analyseMeld(m.tiles) !== null) return [m];
+        for (let cut = MIN_MELD_SIZE; cut <= m.tiles.length - MIN_MELD_SIZE; cut += 1) {
+          const head = m.tiles.slice(0, cut);
+          const tail = m.tiles.slice(cut);
+          if (analyseMeld(head) !== null && analyseMeld(tail) !== null) {
+            return [{ ...m, tiles: head }, newMeld(tail, nextTempMeldId--)];
+          }
+        }
+        return [m];
+      });
+    }
+
     if (target.kind === 'new') {
       board = board.filter((m) => m.tiles.length > 0);
       board.push(newMeld(reorder(moved), nextTempMeldId--));
@@ -478,6 +498,33 @@ export function createGame({ onChange, onFeedback }) {
     });
     persist();
     emit('select');
+    return true;
+  }
+
+  /** Vrai si les deux combinaisons n'en formeraient qu'une seule valide une fois réunies. */
+  function canMergeMelds(sourceId, targetId) {
+    if (!isHumanTurn() || sourceId === targetId) return false;
+    const source = state.workBoard.find((m) => m.id === sourceId);
+    const target = state.workBoard.find((m) => m.id === targetId);
+    return source !== undefined && target !== undefined
+      && analyseMeld([...target.tiles, ...source.tiles]) !== null;
+  }
+
+  /**
+   * Fusionne la combinaison `sourceId`, déposée sur `targetId`, en une seule ; les numéros se
+   * remettent en ordre d'eux-mêmes. C'est une vraie manipulation de table — elle passe par
+   * l'annulation et demande, pour valider le tour, de poser au moins une tuile du chevalet.
+   */
+  function mergeMelds(sourceId, targetId) {
+    if (!canMergeMelds(sourceId, targetId)) return false;
+    const source = state.workBoard.find((m) => m.id === sourceId);
+    history.push({ board: state.workBoard, rack: state.workRack });
+    if (history.length > 100) history.shift();
+    const board = state.workBoard
+      .filter((m) => m.id !== sourceId)
+      .map((m) => (m.id === targetId ? { ...m, tiles: reorder([...m.tiles, ...source.tiles]) } : m));
+    update({ workBoard: board, selection: new Set(), message: null });
+    emit('place');
     return true;
   }
 
@@ -727,6 +774,8 @@ export function createGame({ onChange, onFeedback }) {
     clearSelection,
     moveTiles,
     moveMeld,
+    canMergeMelds,
+    mergeMelds,
     placeSelection,
     returnSelectionToRack,
     sortRack,
