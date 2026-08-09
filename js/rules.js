@@ -66,11 +66,9 @@ function analyseGroup(tiles) {
   if (reals.some((t) => t.number !== number)) return null;
   if (new Set(reals.map((t) => t.color)).size !== reals.length) return null;
 
-  const ordered = [
-    ...reals.slice().sort((a, b) => COLORS.indexOf(a.color) - COLORS.indexOf(b.color)),
-    ...tiles.filter((t) => t.isJoker),
-  ];
-  return { kind: 'group', points: number * size, ordered };
+  // L'ordre d'un groupe n'a pas de sens pour les règles : chaque tuile — joker compris —
+  // reste donc à la place où le joueur l'a déposée.
+  return { kind: 'group', points: number * size, ordered: tiles.slice() };
 }
 
 /** Analyse une suite : numéros consécutifs d'une même couleur, les jokers comblant les trous. */
@@ -87,8 +85,23 @@ function analyseRun(tiles) {
   const numbers = reals.map((t) => t.number);
   if (new Set(numbers).size !== numbers.length) return null;
 
-  // La suite occupe une fenêtre [start, start + size - 1] contenant toutes les tuiles réelles ;
-  // les jokers occupent les positions libres, internes comme aux extrémités.
+  // La combinaison telle que posée d'abord : si l'ordre donné se lit comme une suite, chaque
+  // joker vaut la place qu'il occupe. C'est ce qui permet de choisir où mettre son joker —
+  // avant, au milieu ou après les tuiles — et ce choix fait foi, points compris.
+  const firstReal = tiles.findIndex((t) => !t.isJoker);
+  const givenStart = tiles[firstReal].number - firstReal;
+  if (
+    givenStart >= MIN_NUMBER
+    && givenStart + size - 1 <= MAX_NUMBER
+    && tiles.every((t, index) => t.isJoker || t.number === givenStart + index)
+  ) {
+    let points = 0;
+    for (let n = givenStart; n < givenStart + size; n += 1) points += n;
+    return { kind: 'run', points, ordered: tiles.slice() };
+  }
+
+  // Sinon, la suite occupe une fenêtre [start, start + size - 1] contenant toutes les tuiles
+  // réelles ; les jokers occupent les positions libres, internes comme aux extrémités.
   const lowest = Math.min(...numbers);
   const highest = Math.max(...numbers);
   const startMin = Math.max(MIN_NUMBER, highest - size + 1);

@@ -130,6 +130,26 @@ test('une suite avec un numero en double est refusee', () => {
   assert.equal(analyseMeld([red(5), red(5), red(6), red(7)]), null);
 });
 
+test('le joker occupe la place choisie dans une suite, points compris', () => {
+  const leading = analyseMeld([joker(), blue(5), blue(6), blue(7)]);
+  assert.equal(leading.points, 22, 'devant, le joker vaut 4');
+  assert.equal(leading.ordered[0].isJoker, true);
+
+  const trailing = analyseMeld([blue(5), blue(6), blue(7), joker()]);
+  assert.equal(trailing.points, 26, 'derrière, le joker vaut 8');
+  assert.equal(trailing.ordered[3].isJoker, true);
+
+  const middle = analyseMeld([blue(5), joker(), blue(7)]);
+  assert.equal(middle.points, 18, 'au milieu, le joker vaut 6');
+  assert.equal(middle.ordered[1].isJoker, true);
+});
+
+test('des tuiles posees dans le desordre sont remises en suite', () => {
+  const analysis = analyseMeld([blue(6), blue(8), blue(7)]);
+  assert.equal(analysis.kind, 'run');
+  assert.deepEqual(analysis.ordered.map((x) => x.number), [6, 7, 8]);
+});
+
 // ------------------------------------------------------------------ règles du tour
 
 const snapshot = (board, rack) => ({ board, rack });

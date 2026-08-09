@@ -245,6 +245,18 @@ body {
   box-shadow: 0 0 0 2px rgba(243, 206, 124, 0.65), 0 3px 6px rgba(8, 23, 17, 0.55);
 }
 
+/* La tuile qui vient d'être piochée : quelques pulsations dorées le temps de la repérer dans
+   le chevalet fraîchement retrié. */
+.tile.drawn {
+  border-color: var(--gold-bright);
+  animation: drawn-pulse 1s ease-in-out 5;
+}
+
+@keyframes drawn-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(243, 206, 124, 0), 0 3px 6px rgba(8, 23, 17, 0.55); }
+  50% { box-shadow: 0 0 0 5px rgba(243, 206, 124, 0.5), 0 3px 6px rgba(8, 23, 17, 0.55); }
+}
+
 /* Joker récupéré sur la table : il attend dans le chevalet et doit être rejoué avant la fin
    du tour. */
 .tile.must-play {
@@ -575,6 +587,36 @@ body {
 
 .meld.invalid {
   border: 2px solid var(--alert);
+}
+
+/* Poignée de déplacement : on attrape toute la combinaison pour réorganiser le tapis. */
+.meld-handle {
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  padding: 0 3px;
+  color: rgba(224, 178, 82, 0.55);
+  font-size: 0.85rem;
+  line-height: 1;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* La combinaison soulevée reste en place, estompée : on voit d'où elle part. */
+.meld.meld-dragging {
+  opacity: 0.35;
+}
+
+/* Repère d'insertion entre combinaisons : un liseré doré sur la voisine. */
+.meld.insert-before {
+  box-shadow: -6px 0 0 0 var(--gold-bright);
+}
+
+.meld.insert-after {
+  box-shadow: 6px 0 0 0 var(--gold-bright);
 }
 
 @keyframes meld-in {

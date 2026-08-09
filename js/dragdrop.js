@@ -39,6 +39,9 @@ function insertionIndex(container, clientX) {
 export function enableDragAndDrop({ root, game, onDropped }) {
   let drag = null;
 
+  /** Déplacement d'une combinaison entière, saisie par sa poignée. */
+  let meldDrag = null;
+
   function tileIdsToMove(tileId) {
     // Glisser une tuile déjà sélectionnée emporte tout le groupe : c'est ce qui permet de
     // déplacer une combinaison entière d'un seul geste.
@@ -96,6 +99,36 @@ export function enableDragAndDrop({ root, game, onDropped }) {
     for (const element of root.querySelectorAll('.insert-before, .insert-after')) {
       element.classList.remove('insert-before', 'insert-after');
     }
+  }
+
+  /**
+   * Position visée par la combinaison portée, parmi les autres : la rangée au-dessus du
+   * pointeur passe avant, celle qui l'entoure se départage à sa moitié.
+   */
+  function meldInsertion(clientX, clientY, draggedEl) {
+    const melds = [...root.querySelectorAll('#board .meld[data-meld-id]')]
+      .filter((el) => el !== draggedEl);
+    for (let i = 0; i < melds.length; i += 1) {
+      const box = melds[i].getBoundingClientRect();
+      if (clientY < box.top) return { index: i, element: melds[i], after: false };
+      if (clientY <= box.bottom && clientX < box.left + box.width / 2) {
+        return { index: i, element: melds[i], after: false };
+      }
+    }
+    const last = melds[melds.length - 1];
+    return { index: melds.length, element: last ?? null, after: true };
+  }
+
+  function finishMeldDrag(event) {
+    const { ghost, meldEl, meldId, moved } = meldDrag;
+    const target = moved ? meldInsertion(event.clientX, event.clientY, meldEl) : null;
+    ghost?.remove();
+    clearHighlight();
+    meldEl.classList.remove('meld-dragging');
+    meldDrag = null;
+    if (target === null) return;
+    const done = game.moveMeld(meldId, target.index);
+    if (!done) onDropped();
   }
 
   /**
@@ -189,6 +222,32 @@ export function enableDragAndDrop({ root, game, onDropped }) {
 
   root.addEventListener('pointerdown', (event) => {
     if (event.button !== undefined && event.button !== 0) return;
+
+    // Poignée de combinaison : c'est toute la rangée qui se déplace.
+    const handle = event.target.closest('.meld-handle');
+    if (handle) {
+      const meldEl = handle.closest('.meld[data-meld-id]');
+      if (!meldEl) return;
+      event.preventDefault();
+      meldDrag = {
+        pointerId: event.pointerId,
+        meldEl,
+        meldId: Number(meldEl.dataset.meldId),
+        startX: event.clientX,
+        startY: event.clientY,
+        moved: false,
+        ghost: null,
+        grabX: 0,
+        grabY: 0,
+      };
+      try {
+        handle.setPointerCapture(event.pointerId);
+      } catch {
+        /* sans capture, on suit les événements remontés jusqu'à la racine */
+      }
+      return;
+    }
+
     const tile = event.target.closest('.tile.playable');
     if (!tile || !tile.dataset.tileId) return;
 
@@ -222,6 +281,33 @@ export function enableDragAndDrop({ root, game, onDropped }) {
   });
 
   root.addEventListener('pointermove', (event) => {
+    if (meldDrag !== null && event.pointerId === meldDrag.pointerId) {
+      const dx = event.clientX - meldDrag.startX;
+      const dy = event.clientY - meldDrag.startY;
+      if (!meldDrag.moved) {
+        if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+        meldDrag.moved = true;
+        const box = meldDrag.meldEl.getBoundingClientRect();
+        const ghost = document.createElement('div');
+        ghost.className = 'drag-ghost';
+        ghost.append(meldDrag.meldEl.cloneNode(true));
+        document.body.append(ghost);
+        meldDrag.ghost = ghost;
+        meldDrag.grabX = event.clientX - box.left;
+        meldDrag.grabY = event.clientY - box.top + FINGER_LIFT;
+        meldDrag.meldEl.classList.add('meld-dragging');
+      }
+      meldDrag.ghost.style.transform =
+        `translate(${event.clientX - meldDrag.grabX}px, ${event.clientY - meldDrag.grabY}px)`;
+
+      clearHighlight();
+      const target = meldInsertion(event.clientX, event.clientY, meldDrag.meldEl);
+      if (target.element !== null) {
+        target.element.classList.add(target.after ? 'insert-after' : 'insert-before');
+      }
+      return;
+    }
+
     if (drag === null || event.pointerId !== drag.pointerId) return;
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
@@ -247,8 +333,22 @@ export function enableDragAndDrop({ root, game, onDropped }) {
     }
   });
 
-  root.addEventListener('pointerup', finish);
+  root.addEventListener('pointerup', (event) => {
+    if (meldDrag !== null && event.pointerId === meldDrag.pointerId) {
+      finishMeldDrag(event);
+      return;
+    }
+    finish(event);
+  });
   root.addEventListener('pointercancel', (event) => {
+    if (meldDrag !== null && event.pointerId === meldDrag.pointerId) {
+      meldDrag.ghost?.remove();
+      clearHighlight();
+      meldDrag.meldEl.classList.remove('meld-dragging');
+      meldDrag = null;
+      onDropped();
+      return;
+    }
     if (drag === null || event.pointerId !== drag.pointerId) return;
     drag.ghost?.remove();
     clearHighlight();

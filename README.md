@@ -30,6 +30,12 @@ s'insère à l'endroit visé —, d'une combinaison à l'autre pour remanier la 
 chevalet pour reprendre une tuile descendue par erreur. Une tuile posée avant le tour, elle,
 reste sur la table : les règles l'exigent, et le jeu le refuse avec un message.
 
+L'ordre à l'intérieur d'une combinaison est libre : les tuiles — joker compris — restent à la
+place où on les dépose, et dans une suite le joker vaut la place qu'il occupe, points compris.
+Chaque combinaison porte une poignée (⠿) qui permet de la déplacer entière pour organiser le
+tapis à sa façon ; cet ordre survit aux tours suivants. La tuile fraîchement piochée pulse en
+doré quelques instants, le temps de la repérer dans le chevalet retrié.
+
 La tuile soulevée quitte réellement sa place et suit le doigt, légèrement remontée pour rester
 visible. Il n'est pas demandé de viser juste : dès que la tuile frôle une combinaison, celle-ci
 devient la destination, et un liseré doré montre où la pièce va s'intercaler. Sans cette
