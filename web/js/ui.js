@@ -4,7 +4,7 @@
 // d'une centaine de tuiles : un rendu complet coûte moins d'une milliseconde et évite toute la
 // complexité d'une mise à jour incrémentale.
 
-import { DIFFICULTIES } from './ai.js';
+import { EXTENDS_FROM_LEVEL, MAX_LEVEL, REARRANGES_FROM_LEVEL } from './ai.js';
 import { HUMAN_INDEX, ROUND_END_RUMMIKUB, isRoundOver, rackPenalty } from './engine.js';
 import { COLORS, INITIAL_MELD_POINTS, JOKER_PENALTY, analyseMeld, tile } from './rules.js';
 
@@ -107,27 +107,34 @@ export function createUi(game) {
     }
   }
 
-  function renderDifficultyCards(ui) {
-    const host = $('difficulty-cards');
-    host.replaceChildren();
-    for (const level of Object.values(DIFFICULTIES)) {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'difficulty-card';
-      card.setAttribute('aria-pressed', String(level.key === ui.difficulty));
-      const title = document.createElement('h3');
-      title.textContent = level.label;
-      const text = document.createElement('p');
-      text.textContent = level.description;
-      card.append(title, text);
-      card.addEventListener('click', () => game.chooseDifficulty(level.key));
-      host.append(card);
+  /** Ce que le niveau change concrètement chez les adversaires, dit avec leurs paliers. */
+  function levelDescription(level) {
+    if (level < EXTENDS_FROM_LEVEL) {
+      return 'Les adversaires ne posent que leurs propres combinaisons.';
     }
+    if (level < REARRANGES_FROM_LEVEL) {
+      return 'Les adversaires complètent aussi ce qui est déjà posé.';
+    }
+    return 'Les adversaires réorganisent toute la table à leur profit.';
+  }
+
+  function renderLevelCard(ui) {
+    const host = $('level-card');
+    host.replaceChildren();
+    const title = document.createElement('h3');
+    title.textContent = `Niveau ${ui.level}`;
+    const what = document.createElement('p');
+    what.textContent = levelDescription(ui.level);
+    const hint = document.createElement('p');
+    hint.textContent = ui.level < MAX_LEVEL
+      ? 'Gagnez une manche pour passer au niveau suivant : les adversaires progressent avec vous.'
+      : 'Niveau maximum atteint : les adversaires jouent à leur meilleur.';
+    host.append(title, what, hint);
   }
 
   function renderHome(ui) {
     renderOpponentPills(ui);
-    renderDifficultyCards(ui);
+    renderLevelCard(ui);
     const resume = $('btn-resume');
     resume.hidden = !ui.canResume;
     $('btn-start').textContent = ui.canResume ? 'Nouvelle partie' : 'Commencer la partie';
@@ -154,6 +161,7 @@ export function createUi(game) {
       chip.title = player.hasOpened ? 'a fait sa pose initiale' : "n'a pas encore ouvert";
       host.append(chip);
     });
+    $('player-level').textContent = `Niveau ${ui.level}`;
     $('pool-count').textContent = `Pioche ${ui.game.pool.length}`;
   }
 
@@ -332,6 +340,13 @@ export function createUi(game) {
       row.append(name, left, score);
       host.append(row);
     });
+
+    if (ui.leveledUp) {
+      const levelUp = document.createElement('p');
+      levelUp.className = 'level-up';
+      levelUp.textContent = `Vous passez au niveau ${ui.level} : les adversaires seront plus coriaces.`;
+      host.append(levelUp);
+    }
 
     const note = document.createElement('p');
     note.className = 'left';

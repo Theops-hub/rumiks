@@ -3,7 +3,7 @@
 // Ce module ne touche pas au DOM. Il expose un état et des actions, et prévient l'interface à
 // chaque changement — la même séparation que le ViewModel de la version Android.
 
-import { chooseMove, DIFFICULTIES } from './ai.js';
+import { MAX_LEVEL, chooseMove } from './ai.js';
 import {
   HUMAN_INDEX,
   ROUND_END_BLOCKED,
@@ -17,7 +17,15 @@ import {
   startRound,
 } from './engine.js';
 import { INITIAL_MELD_POINTS, MIN_MELD_SIZE, analyseMeld, sortByColor, sortByNumber } from './rules.js';
-import { clearGame, loadGame, loadSettings, saveGame, saveSettings } from './storage.js';
+import {
+  clearGame,
+  loadGame,
+  loadProgress,
+  loadSettings,
+  saveGame,
+  saveProgress,
+  saveSettings,
+} from './storage.js';
 
 const OPPONENT_NAMES = ['Alice', 'Bruno', 'Chloé'];
 
@@ -38,7 +46,10 @@ export function createGame({ onChange, onFeedback }) {
 
   let state = {
     screen: 'home',
-    difficulty: saved?.difficulty ?? 'medium',
+    /** Niveau du joueur : il monte d'un cran par manche gagnée et règle la force des adversaires. */
+    level: Math.min(loadProgress().level, MAX_LEVEL),
+    /** Vrai quand la manche qui vient de s'achever a fait monter le joueur d'un niveau. */
+    leveledUp: false,
     opponentCount: saved?.opponentCount ?? 2,
     game: null,
     workBoard: [],
@@ -141,10 +152,6 @@ export function createGame({ onChange, onFeedback }) {
 
   // ------------------------------------------------------------ écran d'accueil
 
-  function chooseDifficulty(key) {
-    if (DIFFICULTIES[key]) update({ difficulty: key });
-  }
-
   function chooseOpponentCount(count) {
     update({ opponentCount: Math.min(Math.max(count, 1), OPPONENT_NAMES.length) });
   }
@@ -152,7 +159,7 @@ export function createGame({ onChange, onFeedback }) {
   function persist() {
     if (state.game === null) return;
     saveGame({
-      difficulty: state.difficulty,
+      difficulty: state.level,
       opponentCount: state.opponentCount,
       game: state.game,
       log: state.log,
@@ -163,7 +170,7 @@ export function createGame({ onChange, onFeedback }) {
     const game = startRound({
       humanName: 'Vous',
       opponentNames: OPPONENT_NAMES.slice(0, state.opponentCount),
-      difficulty: state.difficulty,
+      difficulty: state.level,
       carriedScores,
     });
     reserveMeldIds(game);
@@ -220,7 +227,6 @@ export function createGame({ onChange, onFeedback }) {
     history = [];
     update({
       screen: 'game',
-      difficulty: restored.difficulty,
       opponentCount: restored.opponentCount,
       game,
       workBoard: game.board,
@@ -465,7 +471,22 @@ export function createGame({ onChange, onFeedback }) {
     const reason = game.endReason === ROUND_END_RUMMIKUB
       ? `Rummikub ! ${winner} a posé sa dernière tuile.`
       : `Pioche épuisée : ${winner} a le chevalet le plus léger.`;
-    update({ log: [...state.log, reason].slice(-30), aiThinking: false, showRoundEnd: true });
+
+    // Une manche gagnée fait monter d'un niveau : les adversaires de la suivante seront plus
+    // forts. La progression survit aux parties, elle est donc enregistrée à part.
+    const leveledUp = game.winnerIndex === HUMAN_INDEX && state.level < MAX_LEVEL;
+    const level = leveledUp ? state.level + 1 : state.level;
+    if (leveledUp) saveProgress({ level });
+
+    const log = [...state.log, reason];
+    if (leveledUp) log.push(`Vous passez au niveau ${level}.`);
+    update({
+      log: log.slice(-30),
+      aiThinking: false,
+      showRoundEnd: true,
+      level,
+      leveledUp,
+    });
     emit('roundEnd');
     persist();
   }
@@ -490,7 +511,7 @@ export function createGame({ onChange, onFeedback }) {
       await delay(450);
       await nextPaint();
 
-      const move = chooseMove(game, player.difficulty ?? state.difficulty);
+      const move = chooseMove(game, player.difficulty ?? state.level);
       let next;
       let line;
       let laidTiles = [];
@@ -560,7 +581,6 @@ export function createGame({ onChange, onFeedback }) {
       canUndo: history.length > 0,
       jokerToReplay: jokerToReplay(),
     }),
-    chooseDifficulty,
     chooseOpponentCount,
     startGame,
     nextRound,
@@ -584,4 +604,4 @@ export function createGame({ onChange, onFeedback }) {
   };
 }
 
-export { DIFFICULTIES, ROUND_END_BLOCKED, ROUND_END_RUMMIKUB };
+export { ROUND_END_BLOCKED, ROUND_END_RUMMIKUB };

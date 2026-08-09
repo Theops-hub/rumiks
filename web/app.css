@@ -354,46 +354,26 @@ body {
   box-shadow: 0 6px 14px rgba(8, 23, 17, 0.5);
 }
 
-.difficulty-cards {
-  display: flex;
-  gap: 0.7rem;
-  flex: 0 0 auto;
-}
-
-.difficulty-card {
-  flex: 1;
-  /* Un bouton centre son contenu par défaut ; on remet le texte en haut à gauche. */
+/* Le niveau du joueur : il remplace le choix de difficulté, la force des adversaires suivant la
+   progression d'une manche gagnée à l'autre. */
+.level-card {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
-  text-align: left;
-  padding: 0.8rem 1rem;
-  border: 1px solid rgba(140, 122, 92, 0.3);
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--felt-edge), var(--felt-deep));
-  color: var(--text);
-  font: inherit;
-  cursor: pointer;
-  transition: border-color 0.24s ease, box-shadow 0.24s ease, background 0.24s ease;
-}
-
-.difficulty-card[aria-pressed='true'] {
+  gap: 0.3rem;
+  padding: 0.9rem 1.1rem;
   border: 2px solid var(--gold);
+  border-radius: 14px;
   background: linear-gradient(180deg, var(--felt-raised), var(--felt-center));
   box-shadow: 0 10px 20px rgba(8, 23, 17, 0.55);
 }
 
-.difficulty-card h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1.05rem;
-  color: var(--text);
-}
-
-.difficulty-card[aria-pressed='true'] h3 {
+.level-card h3 {
+  margin: 0;
+  font-size: 1.15rem;
   color: var(--gold-bright);
 }
 
-.difficulty-card p {
+.level-card p {
   margin: 0;
   font-size: 0.82rem;
   line-height: 1.35;
@@ -781,11 +761,18 @@ body {
 .score-row .score.positive { color: var(--gold); }
 .score-row .score.negative { color: var(--alert); }
 
+/* Annonce de montée de niveau dans le bilan de manche. */
+.level-up {
+  margin: 0.6rem 0 0;
+  font-weight: 700;
+  color: var(--gold-bright);
+}
+
 /* Sur un écran vraiment étroit ou bas de plafond, on resserre plutôt que de faire défiler. */
 @media (max-height: 420px) {
   :root { --tile-w: clamp(28px, min(5.6vh, (100vw - 2rem) / 15), 48px); }
   .brand-text h1 { font-size: 1.5rem; }
-  .difficulty-card p { font-size: 0.75rem; }
+  .level-card p { font-size: 0.75rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

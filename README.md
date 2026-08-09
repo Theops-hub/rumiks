@@ -1,7 +1,8 @@
 # Rumiks
 
-Jeu de tuiles reprenant les règles du Rummikub, contre des joueurs virtuels de trois
-niveaux. Il s'ajoute à l'écran d'accueil d'un iPad et se joue **entièrement hors ligne**.
+Jeu de tuiles reprenant les règles du Rummikub, contre des joueurs virtuels dont la force suit
+le niveau du joueur. Il s'ajoute à l'écran d'accueil d'un iPad et se joue **entièrement hors
+ligne**.
 
 **Jouer : <https://theops-hub.github.io/rumiks/>**
 
@@ -40,16 +41,21 @@ pioche s'épuise et que plus personne ne peut jouer, c'est le chevalet le plus l
 Chaque perdant compte en négatif les points qui lui restent (30 pour un joker), le gagnant marque
 la somme de ces pénalités. Les scores se cumulent de manche en manche.
 
-## Les joueurs virtuels
+## Les joueurs virtuels et le niveau
 
-Les trois niveaux ne reposent pas sur un handicap artificiel mais sur l'étendue des coups
-envisagés :
+La difficulté n'est pas un choix mais une progression : le joueur commence au niveau 1 et monte
+d'un cran à chaque manche gagnée, jusqu'au niveau 10. La force des adversaires suit ce niveau —
+elle ne repose pas sur un handicap artificiel mais sur l'étendue des coups envisagés :
 
-| Niveau | Coups envisagés | Jokers | Recherche |
+| Niveaux | Coups envisagés | Jokers | Recherche |
 |---|---|---|---|
-| Facile | Uniquement les combinaisons formées avec son seul chevalet | Dépensés sans compter | 3 000 nœuds |
-| Modérée | Complète en plus les combinaisons déjà posées | Ménagés | 30 000 nœuds |
-| Difficile | Refond la table entière pour caser un maximum de tuiles | Préservés | 120 000 nœuds |
+| 1 – 2 | Uniquement les combinaisons formées avec son seul chevalet | Dépensés sans compter | ≈ 2 000 – 3 000 nœuds |
+| 3 – 6 | Complète en plus les combinaisons déjà posées | De mieux en mieux ménagés | ≈ 5 000 – 20 000 nœuds |
+| 7 – 10 | Refond la table entière pour caser un maximum de tuiles | Préservés | ≈ 30 000 – 120 000 nœuds |
+
+Entre deux paliers, les moyens de recherche du solveur croissent continûment. La progression est
+enregistrée à part de la partie en cours : commencer une nouvelle partie ne remet pas le niveau
+à zéro.
 
 Le moteur de décision est un solveur de partitionnement (`web/js/solver.js`) : il raisonne sur
 des compteurs de tuiles plutôt que sur des tuiles individuelles, explore en profondeur avec
@@ -66,7 +72,7 @@ cd web
 node --test tests/engine.test.js
 ```
 
-49 cas couvrent les combinaisons, la légalité d'un tour, le solveur, et des manches entières
+51 cas couvrent les combinaisons, la légalité d'un tour, le solveur, et des manches entières
 jouées par les joueurs virtuels en contrôlant chaque coup et la conservation des 106 tuiles.
 
 ## Limites connues

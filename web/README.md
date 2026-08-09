@@ -69,7 +69,7 @@ app.css             habillage complet, tailles calées sur la taille de l'écran
 js/rules.js         tuiles, combinaisons et leur validation
 js/engine.js        état de partie, légalité d'un tour, distribution, décompte
 js/solver.js        solveur de combinaisons
-js/ai.js            stratégies des trois niveaux de joueurs virtuels
+js/ai.js            stratégie des joueurs virtuels, dosée par le niveau du joueur
 js/game.js          enchaînement des tours, manipulation en cours, sauvegarde
 js/ui.js            rendu de l'interface
 js/feedback.js      sons et vibrations

@@ -25,7 +25,13 @@ import {
   validateTurn,
 } from '../js/engine.js';
 import { createSolver, materialize, solutionPoints, solutionTiles } from '../js/solver.js';
-import { chooseMove } from '../js/ai.js';
+import {
+  EXTENDS_FROM_LEVEL,
+  MAX_LEVEL,
+  REARRANGES_FROM_LEVEL,
+  chooseMove,
+  profileForLevel,
+} from '../js/ai.js';
 
 let nextId = 0;
 const t = (number, color) => tile(nextId++, number, color);
@@ -474,6 +480,29 @@ test('un joueur virtuel n ouvre jamais en dessous de 30 points', () => {
       turns += 1;
     }
   }
+});
+
+test('la force des adversaires progresse avec le niveau du joueur', () => {
+  let previousBudget = 0;
+  let previousTime = 0;
+  for (let level = 1; level <= MAX_LEVEL; level += 1) {
+    const profile = profileForLevel(level);
+    assert.ok(profile.nodeBudget > previousBudget, `budget en recul au niveau ${level}`);
+    assert.ok(profile.timeLimitMs >= previousTime, `temps en recul au niveau ${level}`);
+    previousBudget = profile.nodeBudget;
+    previousTime = profile.timeLimitMs;
+  }
+  assert.equal(profileForLevel(1).extendsExistingMelds, false);
+  assert.equal(profileForLevel(EXTENDS_FROM_LEVEL).extendsExistingMelds, true);
+  assert.equal(profileForLevel(REARRANGES_FROM_LEVEL - 1).rearrangesBoard, false);
+  assert.equal(profileForLevel(REARRANGES_FROM_LEVEL).rearrangesBoard, true);
+  // Hors bornes, le profil est ramené dans l'échelle au lieu de produire des réglages absurdes.
+  assert.equal(profileForLevel(0).level, 1);
+  assert.equal(profileForLevel(99).level, MAX_LEVEL);
+});
+
+test('une manche au niveau maximal se termine proprement', () => {
+  playRound(MAX_LEVEL, 11);
 });
 
 test('le niveau modere fait mieux que le niveau facile', () => {
